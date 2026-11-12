@@ -501,8 +501,13 @@ const NHOM = {
     ['query-phien-goi', API, '({ ve, query }) => { docQuery(query, []); return', '({ ve, query }) => { return'],
     // Cửa duyệt bản (Step 5). Tính lại manifest: hàm (bỏ nội dung) + chỗ gọi (bản mới chép; SHA từng duyệt)
     ['manifest-ham', BAN, 'ds.map(f => [f.ten, f.co, f.sha256])', 'ds.map(f => [f.ten, f.co])'],
+    ['manifest-nguon', BAN, 'manifestCua(await docBan(tam, uidMay))', 'manifestCua(await docBan(nguon, ch.uidCho))'],
     ['manifest-goi-chep', BAN, "    if (manifestCua(await docBan(tam, uidMay)) !== manifest) throw new LoiGoi(409, 'manifest_lech');\n", ''],
     ['manifest-goi-da-duyet', BAN, "    if (manifestCua(await docBan(dich, uidMay)) !== manifest) throw new LoiGoi(409, 'manifest_lech');\n", ''],
+    // Bản đã duyệt 0700 (thư mục) / 0600 (tệp): neo không đọc được (ràng buộc 5.3)
+    ['ban-mode-thu-muc', BAN, 'fs.chmodSync(tam, 0o700);', 'fs.chmodSync(tam, 0o755);'],
+    ['ban-mode-tep', BAN, "f.buf, { flag: 'wx', mode: 0o600 }", "f.buf, { flag: 'wx', mode: 0o644 }"],
+    ['ban-mode-ban-json', BAN, "+ '\\n', { flag: 'wx', mode: 0o600 }", "+ '\\n', { flag: 'wx', mode: 0o644 }"],
     // Chủ tệp bản chờ = uidCho: hàm + ba chỗ gọi (duyệt, xem, xem tệp)
     ['uid-cho-ham', BAN, "    if (st.uid !== uid) throw new BanHong('sai_chu');\n", ''],
     ['uid-cho-goi-duyet', BAN, 'docBan(nguon, ch.uidCho)', 'docBan(nguon, uidMay)'],

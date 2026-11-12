@@ -172,10 +172,10 @@ export async function duyet(ch, sha, manifest) {
   try {
     let ds;
     try { ds = await docBan(nguon, ch.uidCho); } catch (e) { throw loiHong(e); }
-    for (const f of ds) fs.writeFileSync(path.join(tam, f.ten), f.buf, { flag: 'wx', mode: 0o644 });
+    for (const f of ds) fs.writeFileSync(path.join(tam, f.ten), f.buf, { flag: 'wx', mode: 0o600 });
     if (manifestCua(await docBan(tam, uidMay)) !== manifest) throw new LoiGoi(409, 'manifest_lech');
-    fs.writeFileSync(path.join(tam, BAN_JSON), JSON.stringify({ ban: sha }) + '\n', { flag: 'wx', mode: 0o644 });
-    fs.chmodSync(tam, 0o755);
+    fs.writeFileSync(path.join(tam, BAN_JSON), JSON.stringify({ ban: sha }) + '\n', { flag: 'wx', mode: 0o600 });
+    fs.chmodSync(tam, 0o700);
     fs.mkdirSync(path.join(goc, 'ban'), { recursive: true });
     fs.renameSync(tam, dich);
   } finally { fs.rmSync(tam, { recursive: true, force: true }); }   // sau rename thì tam không còn ⇒ không làm gì

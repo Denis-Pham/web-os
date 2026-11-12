@@ -52,7 +52,7 @@ const gioVn = ctx => new Date(ctx.bayGio() + 7 * 3600e3).toISOString();   // gi�
 // Một cổng cho mọi route ghi kho: gọi ĐẦU handler, trước mọi đọc thân/kho.
 function kiemCosGhi(ctx) { if (ctx.ch.cosGhi !== true) throw new LoiGoi(423, 'cos_ghi_tat'); }
 // Cửa duyệt bản (thiết kế 6): route ghi bản chỉ bật khi bản phục vụ thuộc chính máy chủ (ban.mjs ghiBat); gọi ĐẦU handler.
-function kiemGhiBan(ctx) { if (!ghiBat(ctx.ch)) throw new LoiGoi(403, 'ghi_tat'); }
+function kiemGhiBan(ctx) { if (!ghiBat(ctx.ch)) throw new LoiGoi(423, 'ghi_tat'); }
 const khop = (re, s) => typeof s === 'string' && re.test(s);
 // fatal: byte UTF-8 hỏng ⇒ ném (Buffer.toString thay bằng U+FFFD rồi lưu — soát A3); ignoreBOM: giữ BOM ⇒ JSON.parse từ chối như trước.
 const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });

@@ -24,7 +24,7 @@ const A = 'a'.repeat(40), B = 'b'.repeat(40), C = 'c'.repeat(40), D = 'd'.repeat
 const pick = r => [r.ma, r.json];
 const hong = ly_do => [422, { loi: 'ban_hong', chi_tiet: { ly_do } }];
 const luocDo = ly_do => [400, { loi: 'luoc_do', chi_tiet: { ly_do } }];
-const GHI_TAT = [403, { loi: 'ghi_tat' }];
+const GHI_TAT = [423, { loi: 'ghi_tat' }];
 
 let so = 0;
 async function mayMoi(them = {}, bo = []) {   // mỗi máy một thư mục chờ + thư mục bản riêng; mặc định ghi bật (uidBan = uid test)
@@ -64,7 +64,8 @@ test('xem → duyệt: manifest khớp cách tính độc lập; manifest sai �
   assert.equal(r.than, tepA['index.html']); assert.match(r.dau['content-type'], /^text\/html/); assert.equal(r.dau['cache-control'], 'no-cache');
   assert.match(r.dau['content-security-policy'], /default-src 'self'/);
   assert.deepEqual(JSON.parse((await goi(m1.may, '/ban.json')).than), { ban: A });
-  assert.equal(fs.statSync(path.join(m1.ban, 'ban', A)).mode & 0o777, 0o755);
+  assert.equal(fs.statSync(path.join(m1.ban, 'ban', A)).mode & 0o777, 0o700);   // ràng buộc 5.3: neo không đọc được bản đã duyệt
+  for (const t of ['index.html', 'ban.json']) assert.equal(fs.statSync(path.join(m1.ban, 'ban', A, t)).mode & 0o777, 0o600, t);
   assert.deepEqual(tamSot(m1), []);
   assert.deepEqual((await goi(m1.may, '/api/ban')).json, { hien_tai: { sha: A, manifest: manifestTu(tepA) }, truoc: null, cho: [] });
 });
@@ -173,6 +174,14 @@ test('lật nguyên tử: tạo symlink hien-tai mới hỏng ⇒ 500, hien-tai 
   assert.deepEqual(pick(await duyet(m, B, manifestTu(tepB))), [200, { hien_tai: B, truoc: A }]);
 });
 
+test('manifest TÍNH LẠI từ byte ĐÃ CHÉP, không đọc lại nguồn: nguồn bị ghi đè ngay sau khi chép một tệp ⇒ duyệt bằng manifest gốc vẫn 200 và phục vụ đúng nội dung GỐC', async () => {
+  const m = await coBanA(), goc = fs.writeFileSync, nguon = path.join(m.cho, 'ban', B, 'app.js');
+  fs.writeFileSync = (p, ...r) => { const kq = goc(p, ...r); if (String(p).includes('.tam-') && path.basename(String(p)) === 'app.js') goc(nguon, 'TRAO()'); return kq; };
+  try { assert.deepEqual(pick(await duyet(m, B, manifestTu(tepB))), [200, { hien_tai: B, truoc: A }]); } finally { fs.writeFileSync = goc; }
+  assert.equal(fs.readFileSync(nguon, 'utf8'), 'TRAO()');                    // móc có chạy: nguồn đã bị tráo thật
+  assert.equal((await goi(m.may, '/app.js')).than, 'moi()');
+});
+
 test('thứ tự lật: truoc trước, hien-tai sau ⇒ đổi hien-tai hỏng thì vẫn phục vụ bản cũ, symlink tạm được dọn; thử lại ⇒ lật xong', async () => {
   const m = await coBanA(), goc = fs.renameSync;
   let n = 0;
@@ -184,7 +193,7 @@ test('thứ tự lật: truoc trước, hien-tai sau ⇒ đổi hien-tai hỏng 
   assert.equal(link(m, 'truoc'), 'ban/' + A);
 });
 
-test('route ghi bản chỉ bật khi bản phục vụ thuộc chính máy chủ (uidBan = uid tiến trình) và có cửa chờ: lệch ⇒ 403 ghi_tat cả ba route, không lật; đối chứng ⇒ 200', async () => {
+test('route ghi bản chỉ bật khi bản phục vụ thuộc chính máy chủ (uidBan = uid tiến trình) và có cửa chờ: lệch ⇒ 423 ghi_tat cả ba route, không lật; đối chứng ⇒ 200', async () => {
   const tat = await mayMoi({ uidBan: UID + 1 }), tep = { 'index.html': 't' };
   datBan(tat.cho, A, tep);
   assert.deepEqual(pick(await goi(tat.may, '/api/ban')), GHI_TAT);

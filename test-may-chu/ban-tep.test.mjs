@@ -63,9 +63,9 @@ test('tep: tham số lạ ⇒ 400 query (tên có / hay .., đuôi lạ, sha sai
   for (const t of ['../ban.json', '..%2Fx.js', 'a/b.js', '.an.js', 'x.mjs', 'a..js', 'app.js%00', '%2Fetc%2Fhosts.txt', '']) sai.push(`sha=${B}&ten=${t}`);
   for (const q of sai) { const r = await goi(m1.may, '/api/ban/tep?' + q); assert.deepEqual([r.ma, r.json.loi], [400, 'query'], q); }
   assert.deepEqual([(await goi(m1.may, '/api/ban/tep')).ma, (await goi(m1.may, '/api/ban/tep')).json.loi], [400, 'query']);
-  const tat = await mayMoi({ uidBan: UID + 1 }), nd = { 'app.js': 'x()' };   // ghi tắt (uidBan ≠ uid) ⇒ /api/ban 403 nhưng xem tệp vẫn được
+  const tat = await mayMoi({ uidBan: UID + 1 }), nd = { 'app.js': 'x()' };   // ghi tắt (uidBan ≠ uid) ⇒ /api/ban 423 nhưng xem tệp vẫn được
   datBan(tat.cho, B, nd);
-  assert.equal((await goi(tat.may, '/api/ban')).ma, 403);
+  assert.equal((await goi(tat.may, '/api/ban')).ma, 423);
   assert.deepEqual(pick(await tep(tat, B, 'app.js')), [200, { ten: 'app.js', moi: chu('x()'), cu: null }]);
   const khong = await mayMoi({}, ['thuMucCho', 'uidCho']);
   assert.deepEqual(pick(await tep(khong, B, 'app.js')), [404, { loi: 'khong_co_ban' }]);
