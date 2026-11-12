@@ -2,7 +2,6 @@
 // 127.0.0.1:<cong> (CHỈ dev), và socket thứ hai ngheKernel cho Hermes Kernel. Mọi yêu cầu web qua bộ định tuyến chung api.mjs (vé ở MỌI yêu cầu).
 // Khung chép từ Learning ~/dev/learning-that 630a0bf:may-chu/may-chu.mjs (nghe, khoiDong, lối chạy). Chạy: node may-chu/may-chu.mjs <cau-hinh.json>
 import http from 'node:http';
-import net from 'node:net';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +11,7 @@ import { moKho } from './kho.mjs';
 import { henSaoLuu } from './sao-luu.mjs';
 import { ghiSoDem } from './xuat.mjs';
 import { xuLy, tra } from './api.mjs';
+import { taoKernel } from './kernel.mjs';
 
 const sach = s => String(s).slice(0, 200).replace(/[^\x21-\x7e]/g, '?');
 
@@ -33,22 +33,7 @@ async function nghe(server, duong, cong) {
   fs.chmodSync(duong, 0o660);
 }
 
-// kernel.sock ở A2: chưa có giao thức (A4) — khung đầu tiên (4 byte độ dài BE + JSON) nhận về MỘT khung { ok: false, loi: 'chua_co' } rồi đóng.
-function kernelTam() {
-  const ketNoi = new Set();
-  const s = net.createServer(c => {
-    ketNoi.add(c); c.on('close', () => ketNoi.delete(c)); c.on('error', () => {});
-    c.once('data', () => {
-      const ra = Buffer.from(JSON.stringify({ ok: false, loi: 'chua_co' })), l = Buffer.alloc(4);
-      l.writeUInt32BE(ra.length);
-      c.end(Buffer.concat([l, ra]));
-    });
-  });
-  s.closeAllConnections = () => { for (const c of ketNoi) c.destroy(); };
-  return s;
-}
-
-// dongHo (chỉ test): đồng hồ giả cho bộ hẹn sao lưu ({ now, setTimeout, clearTimeout }).
+// dongHo (chỉ test): đồng hồ giả cho bộ hẹn sao lưu + hẹn 5 s của kernel.sock ({ now, setTimeout, clearTimeout }).
 export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.stdout.write(s + '\n'), dongHo } = {}) {
   const ch = docCauHinh(duongCauHinh);
   const kiem = taoKiemJwt({ teamDomain: ch.teamDomain, aud: ch.aud, emails: ch.emails, ...(layJwks ? { layJwks } : {}) });
@@ -67,7 +52,7 @@ export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.st
     res.on('close', () => ghiLog(`${new Date().toISOString()} ${sach(req.method)} ${sach(p)} ${res.statusCode} ${Math.round(performance.now() - t0)}ms`));
     xuLy(ctx, req, res).catch(() => { if (!res.headersSent) tra(res, 500); else res.destroy(); });   // không in lỗi: có thể mang dữ liệu
   });
-  const kernel = kernelTam();
+  const kernel = taoKernel(ctx, dongHo);   // kernel.sock (A4): chung ctx (db, ch, bayGio) với route web
   let p;   // dong() nhiều lần (SIGTERM rồi SIGINT) dùng chung một lời hứa: không đóng kho hai lần
   const dong = () => (p ??= (async () => {
     hen.dung();

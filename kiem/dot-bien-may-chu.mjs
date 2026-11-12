@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000;
 const KHO = 'may-chu/kho.mjs', GOI = 'may-chu/goi.mjs';
 const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-chu.mjs', CH = 'may-chu/cau-hinh.mjs';
-const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs';
+const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs', KER = 'may-chu/kernel.mjs';
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -398,6 +398,91 @@ const NHOM = {
     ['man-chu-viec-bo-ngay', API, 'v.han?.slice(0, 10) === homNay))', 'v.han !== undefined))'],
     ['man-chu-viec-han', API, 'AND substr(han, 1, 10) = ? ${THU_TU_VIEC}`, ngay)', 'AND han = ? ${THU_TU_VIEC}`, ngay)'],
     ['man-chu-nhat-ky', API, 'kho: nhatKy(ctx)', 'kho: []'],
+  ],
+  A4: [
+    // Khung: trần 64 KiB (giá trị + chỗ kiểm + biên), hẹn 5 s (giá trị + chỗ đặt + đồng hồ + gỡ khi đóng), byte thừa, UTF-8 chặt.
+    // Không có đột biến «bỏ c.off('data')»: TƯƠNG ĐƯƠNG — lần nhận sau chỉ chạy lại CHÍNH khung đầu (b luôn bắt đầu từ khung đầu),
+    // cùng khoa_lap ⇒ apGoi trả lap / deXuat trả id cũ / hoan ⇒ da_hoan, không ghi thêm; trả lời đã end. Đột biến chạy khung thừa ở dưới.
+    ['tran-khung-ham', KER, 'export const TRAN_KHUNG = 64 * 1024;', 'export const TRAN_KHUNG = 64 * 1024 + 1;'],
+    ['tran-khung-goi', KER, '      if (dai > TRAN_KHUNG) return c.destroy();', '      if (false) return c.destroy();'],
+    ['tran-khung-bien', KER, 'if (dai > TRAN_KHUNG)', 'if (dai >= TRAN_KHUNG)'],
+    ['han-5s-ham', KER, 'const HAN_KHUNG_MS = 5000;', 'const HAN_KHUNG_MS = 50000;'],
+    ['han-5s-goi', KER, 'hen.setTimeout(() => c.destroy(), HAN_KHUNG_MS)', 'hen.setTimeout(() => {}, HAN_KHUNG_MS)'],
+    ['han-dong-ho-that', KER, 'const t = hen.setTimeout(', 'const t = setTimeout('],
+    ['han-go-khi-dong', KER, "c.on('close', () => { ketNoi.delete(c); hen.clearTimeout(t); });", "c.on('close', () => { ketNoi.delete(c); });"],
+    ['byte-thua-chay-tiep', KER, '      c.end(Buffer.concat([l, ra]));\n', '      c.end(Buffer.concat([l, ra]));\n      if (n > 4 + dai) xuLyKhung(ctx, b.subarray(8 + dai));\n'],
+    ['byte-thua-treo', KER, 'if (n < 4 + dai) return;', 'if (n !== 4 + dai) return;'],
+    ['utf8-long', KER, "new TextDecoder('utf-8', { fatal: true })", "new TextDecoder('utf-8')"],
+    // Khung khoá đóng + chủ thể luôn neo. «Lấy chu_the từ khung» cần HAI chỗ cùng hỏng (khung nhận khoá + chỗ gọi dùng nó) ⇒ tách:
+    // khung nhận chu_the (hàm) · chỗ gọi apGoi / taoDeXuat / hoanTac không dùng NEO (gọi) · hằng NEO.
+    ['khung-ham', KER, 'function kiemKhung(k) {\n', 'function kiemKhung(k) {\n  return;\n'],
+    ['khung-goi', KER, '    kiemKhung(k);\n', ''],
+    ['khung-khoa-mo', KER, "Object.keys(k).some(x => !['op', 'nguon', 'thao_tac'].includes(x))", 'false'],
+    ['chu-the-khung-ham', KER, "!['op', 'nguon', 'thao_tac'].includes(x)", "!['op', 'nguon', 'thao_tac', 'chu_the'].includes(x)"],
+    ['chu-the-hang', KER, "const NEO = 'neo';", "const NEO = 'anh';"],
+    ['chu-the-goi-ap-goi', KER, 'chu_the: NEO, nguon, ops: [{ ...tt, loai, bang }]', "chu_the: 'anh', nguon, ops: [{ ...tt, loai, bang }]"],
+    ['chu-the-goi-de-xuat', KER, 'taoDeXuat(db, { mach, chu_the: NEO, noi_dung, ops }, bayGio)', "taoDeXuat(db, { mach, chu_the: 'anh', noi_dung, ops }, bayGio)"],
+    // op đóng
+    ['op-ham', KER, 'function kiemOp(op) {\n', 'function kiemOp(op) {\n  return;\n'],
+    ['op-goi', KER, '    kiemOp(op);\n', ''],
+    ['op-ke-thua', KER, '!Object.hasOwn(KHOA_TT, op)', '!(op in KHOA_TT)'],
+    // nguon
+    ['nguon-ham', KER, 'function kiemNguon(op, nguon) {\n', 'function kiemNguon(op, nguon) {\n  return;\n'],
+    ['nguon-goi', KER, '    kiemNguon(op, nguon);\n', ''],
+    ['nguon-loai', KER, "['tin_anh', 'tu_chay'].includes(nguon.loai)", "['tin_anh', 'tu_chay', 'web'].includes(nguon.loai)"],
+    ['nguon-khoa-mo', KER, "Object.keys(nguon).some(x => !['loai', 'kenh', 'tin_id'].includes(x))", 'false'],
+    ['nguon-kieu', KER, "typeof nguon[x] === 'string' && ", ''],
+    ['nguon-rong', KER, 'nguon[x].length >= 1', 'nguon[x].length >= 0'],
+    ['nguon-tran-100', KER, 'nguon[x].length <= 100', 'nguon[x].length <= 101'],
+    ['nguon-ghi-bat-buoc', KER, ": !DOC.includes(op)) throw khongNhan('nguon', { truong: x });", ": false) throw khongNhan('nguon', { truong: x });"],
+    // thao_tac khoá đóng
+    ['thao-tac-ham', KER, 'function kiemThaoTac(op, tt) {\n', 'function kiemThaoTac(op, tt) {\n  return tt ?? {};\n'],
+    ['thao-tac-goi', KER, 'const tt = kiemThaoTac(op, k.thao_tac);', 'const tt = k.thao_tac ?? {};'],
+    ['thao-tac-khoa-mo', KER, 'Object.keys(tt).some(x => !KHOA_TT[op].includes(x))', 'false'],
+    // tu_chay chỉ đọc + đề xuất (thiết kế 3 dòng 9b)
+    ['tu-chay-ham', KER, 'function kiemTuChay(op, nguon) {\n', 'function kiemTuChay(op, nguon) {\n  return;\n'],
+    ['tu-chay-goi', KER, '    kiemTuChay(op, nguon);\n', ''],
+    ['tu-chay-hoan', KER, "op !== 'de_xuat_tao') throw new LoiGoi(403, 'tu_chay_chi_de_xuat')", "op !== 'de_xuat_tao' && op !== 'hoan') throw new LoiGoi(403, 'tu_chay_chi_de_xuat')"],
+    ['tu-chay-xoa-de-xuat', KER, "op !== 'de_xuat_tao') throw new LoiGoi(403, 'tu_chay_chi_de_xuat')", "op !== 'de_xuat_tao' && op !== 'xoa_de_xuat') throw new LoiGoi(403, 'tu_chay_chi_de_xuat')"],
+    // doc_cai_tien chỉ tu_chay
+    ['doc-cai-tien-ham', KER, 'function kiemDocCaiTien(op, nguon) {\n', 'function kiemDocCaiTien(op, nguon) {\n  return;\n'],
+    ['doc-cai-tien-goi', KER, '    kiemDocCaiTien(op, nguon);\n', ''],
+    // cosGhi trên socket
+    ['cos-ghi-ham', KER, 'function kiemCosGhi(ch, op) {\n', 'function kiemCosGhi(ch, op) {\n  return;\n'],
+    ['cos-ghi-goi', KER, '    kiemCosGhi(ctx.ch, op);\n', ''],
+    ['cos-ghi-de-xuat', KER, 'if (!DOC.includes(op) && ch.cosGhi !== true)', "if (!DOC.includes(op) && op !== 'de_xuat_tao' && ch.cosGhi !== true)"],
+    ['cos-ghi-hoan', KER, 'if (!DOC.includes(op) && ch.cosGhi !== true)', "if (!DOC.includes(op) && op !== 'hoan' && ch.cosGhi !== true)"],
+    // de_xuat_tao không mang xoa
+    ['khong-xoa-ham', KER, 'function kiemKhongXoa(ops) {\n', 'function kiemKhongXoa(ops) {\n  return;\n'],
+    ['khong-xoa-goi', KER, '{ kiemKhongXoa(tt.ops); return deXuat(ctx.db, tt, t); }', '{ return deXuat(ctx.db, tt, t); }'],
+    // hoan gói của anh: chặn ở hoanTac (hàm, A1) + kernel gọi hoanTac với chủ thể neo (gọi)
+    ['hoan-anh-ham', GOI, "if (chu_the === 'neo' && goc.chu_the !== 'neo')", 'if (false)'],
+    ['hoan-anh-goi', KER, 'hoanTac(ctx.db, { ma_hoan, chu_the: NEO, nguon }, t)', "hoanTac(ctx.db, { ma_hoan, chu_the: 'anh', nguon: { loai: 'web' } }, t)"],
+    // R12: khoa_lap từ (kenh, tin_id, op, JSON chuẩn hoá) · đề xuất lặp ⇒ id cũ
+    ['khoa-lap-sap-xep', KER, 'JSON.stringify(sapXep(tt))', 'JSON.stringify(tt)'],
+    ['khoa-lap-goi', KER, 'khoa_lap: khoaLap(nguon, op, tt)', 'khoa_lap: khoaLap(nguon, op, { ...tt, lan: Math.random() })'],
+    ['khoa-lap-kenh', KER, '[nguon.kenh, nguon.tin_id, op, ', '[nguon.tin_id, op, '],
+    ['khoa-lap-tin-id', KER, '[nguon.kenh, nguon.tin_id, op, ', '[nguon.kenh, op, '],
+    ['khoa-lap-op', KER, '[nguon.kenh, nguon.tin_id, op, ', '[nguon.kenh, nguon.tin_id, '],
+    ['de-xuat-lap-ham', KER, "trang_thai = 'cho' AND mach = ?", 'mach = ?'],
+    ['de-xuat-lap-goi', KER, 'return cu ? { id: cu.id, lap: true } :', 'return false ? { id: cu.id, lap: true } :'],
+    ['de-xuat-lap-mach', KER, 'AND mach = ? AND chu_the = ? AND ops = ?").get(mach, NEO, opsJson)', 'AND chu_the = ? AND ops = ?").get(NEO, opsJson)'],
+    ['de-xuat-lap-ops', KER, 'AND mach = ? AND chu_the = ? AND ops = ?").get(mach, NEO, opsJson)', 'AND mach = ? AND chu_the = ?").get(mach, NEO)'],
+    // xoa_de_xuat: dòng còn sống, phiên bản đang thấy, chỉ viec/lich
+    ['xoa-de-xuat-da-xoa', KER, ' WHERE id = ? AND xoa_luc IS NULL`', ' WHERE id = ?`'],
+    ['xoa-de-xuat-phien-ban', KER, 'phien_ban: dong.phien_ban }] }, t)', 'phien_ban: 1 }] }, t)'],
+    ['xoa-de-xuat-bang', KER, "if (bang !== 'viec' && bang !== 'lich') throw saiTruong('bang');", "if (typeof bang !== 'string') throw saiTruong('bang');"],
+    ['xoa-de-xuat-id', KER, "    if (typeof id !== 'string') throw saiTruong('id');\n", ''],
+    // lỗi lạ không lộ thông điệp
+    ['loi-may-chu-lo', KER, ": { ok: false, loi: 'loi_may_chu' }", ": { ok: false, loi: 'loi_may_chu', chi_tiet: String(e.message) }"],
+    // đọc: kiểu + lọc
+    ['doc-viec-mo-kieu', KER, "    if (Object.hasOwn(tt, 'mo') && typeof tt.mo !== 'boolean') throw saiTruong('mo');\n", ''],
+    ['doc-viec-loc-mo', KER, "...(tt.mo ? { mo: '1' } : {})", '...{}'],
+    ['doc-viec-loc-mach', KER, '...(tt.mach === undefined ? {} : { mach: tt.mach })', '...{}'],
+    ['doc-chuoi-ham', KER, 'function chuoi(tt, k) { if (', 'function chuoi(tt, k) { return; if ('],
+    ['doc-viec-mach-goi', KER, "    chuoi(tt, 'mach');\n", ''],
+    ['doc-lich-tu', KER, "chuoi(tt, 'tu'); ", ''],
+    ['doc-lich-den', KER, " chuoi(tt, 'den');", ''],
   ],
 };
 

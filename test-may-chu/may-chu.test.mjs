@@ -1,5 +1,5 @@
 // Test khung máy chủ web-os (task A2): /api/phien, bộ định tuyến chung (404, ánh xạ LoiGoi → HTTP, 500 không lộ lỗi),
-// kernel.sock tạm, kho 0600, log không mang vé, lối chạy CLI `node may-chu/may-chu.mjs <cau-hinh.json>`.
+// kernel.sock (khung + một yêu cầu một trả lời; giao thức đủ ở kernel.test.mjs), kho 0600, log không mang vé, lối chạy CLI `node may-chu/may-chu.mjs <cau-hinh.json>`.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -51,14 +51,14 @@ test('route ghi nhận thân + vé; LoiGoi ⇒ e.ma chung (kể cả 409 trung_n
   } finally { delete ROUTE['POST /api/thu-than']; delete ROUTE['POST /api/thu-loi']; }
 });
 
-test('kernel.sock (A2): mọi khung ⇒ { ok: false, loi: "chua_co" }', async () => {
+test('kernel.sock: khung 4 byte độ dài BE + JSON ⇒ MỘT khung trả lời rồi đóng (khung khoá lạ ⇒ khung)', async () => {
   const ra = await new Promise((ok, loi) => {
     const c = net.createConnection(m.ngheKernel), b = [];
     c.on('connect', () => { const j = Buffer.from('{"hoi":1}'), l = Buffer.alloc(4); l.writeUInt32BE(j.length); c.write(Buffer.concat([l, j])); });
     c.on('data', d => b.push(d)); c.on('end', () => ok(Buffer.concat(b))); c.on('error', loi);
   });
   assert.equal(ra.readUInt32BE(0), ra.length - 4);
-  assert.deepEqual(JSON.parse(ra.subarray(4)), { ok: false, loi: 'chua_co' });
+  assert.deepEqual(JSON.parse(ra.subarray(4)), { ok: false, loi: 'khung' });
 });
 
 test('kho tạo mới mode 0600', async () => {
