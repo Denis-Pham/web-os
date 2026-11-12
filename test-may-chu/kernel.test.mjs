@@ -147,6 +147,27 @@ test('nguon khoá đóng { loai: tin_anh|tu_chay, kenh, tin_id }: kenh/tin_id ch
   assert.equal((await ker(m, lenh('doc_viec', undefined, { loai: 'tin_anh' }))).ok, true, 'op đọc không thao_tac');
 });
 
+test('nguon.kenh / tin_id có ký tự điều khiển ⇒ nguon, kho không đổi (khoa_lap không đụng nhau); đối chứng: không ký tự điều khiển ⇒ ghi', async () => {
+  const truoc = anhKho(m.db), tt = TT_MAU.viec_them;
+  for (const [kenh, tin_id] of [['a\nb', 'c'], ['a', 'b\nc'], ['a\u0000', 'c'], ['a', 'b\u001f'], ['a\u007f', 'c']]) {
+    assert.equal((await ker(m, lenh('viec_them', tt, { loai: 'tin_anh', kenh, tin_id }))).loi, 'nguon', JSON.stringify([kenh, tin_id]));
+  }
+  assert.equal(anhKho(m.db), truoc);
+  assert.equal((await ker(m, lenh('viec_them', tt, { loai: 'tin_anh', kenh: 'ab', tin_id: 'c' }))).ok, true);
+});
+
+test('đường production (không đồng hồ giả): khách khai 100 byte, gửi 10 ⇒ huỷ sau ~5 s, không trả lời', async () => {
+  const mThat = await mt.may({ cosGhi: true }, []);   // KHÔNG truyền dongHo ⇒ taoKernel dùng hẹn mặc định (setTimeout thật)
+  const t0 = Date.now(), c = net.createConnection(mThat.ngheKernel), b = [];
+  let dong = false;
+  c.on('data', d => b.push(d)); c.on('error', () => {}); c.on('close', () => { dong = true; });
+  c.on('connect', () => { const l = Buffer.alloc(4); l.writeUInt32BE(100); c.write(Buffer.concat([l, Buffer.from('0123456789')])); });
+  await cho(() => dong, 'máy chủ huỷ kết nối khi hết 5 s', 8000);
+  const dt = Date.now() - t0;
+  assert.ok(dt >= 4500 && dt <= 7000, 'đóng sau ' + dt + ' ms');
+  assert.equal(b.length, 0);
+});
+
 test('thao_tac khoá đóng theo từng op ⇒ khung, kho không đổi', async () => {
   const truoc = anhKho(m.db);
   const sai = [

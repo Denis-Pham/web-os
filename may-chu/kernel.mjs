@@ -34,12 +34,12 @@ function kiemKhung(k) {
 function kiemOp(op) {
   if (typeof op !== 'string' || !Object.hasOwn(KHOA_TT, op)) throw khongNhan('op_la');
 }
-// nguon khoá đóng { loai: tin_anh|tu_chay, kenh, tin_id }; kenh/tin_id chuỗi 1–100, bắt buộc với op ghi.
+// nguon khoá đóng { loai: tin_anh|tu_chay, kenh, tin_id }; kenh/tin_id chuỗi 1–100 không ký tự điều khiển (khoa_lap nối bằng \n), bắt buộc với op ghi.
 function kiemNguon(op, nguon) {
   if (!laObj(nguon) || !['tin_anh', 'tu_chay'].includes(nguon.loai) || Object.keys(nguon).some(x => !['loai', 'kenh', 'tin_id'].includes(x))) throw khongNhan('nguon');
   for (const x of ['kenh', 'tin_id']) {
     const co = Object.hasOwn(nguon, x);
-    if (co ? !(typeof nguon[x] === 'string' && nguon[x].length >= 1 && nguon[x].length <= 100) : !DOC.includes(op)) throw khongNhan('nguon', { truong: x });
+    if (co ? !(typeof nguon[x] === 'string' && nguon[x].length >= 1 && nguon[x].length <= 100 && !/[\u0000-\u001f\u007f]/.test(nguon[x])) : !DOC.includes(op)) throw khongNhan('nguon', { truong: x });
   }
 }
 function kiemThaoTac(op, tt) {

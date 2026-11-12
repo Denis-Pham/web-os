@@ -401,13 +401,15 @@ const NHOM = {
   ],
   A4: [
     // Khung: trần 64 KiB (giá trị + chỗ kiểm + biên), hẹn 5 s (giá trị + chỗ đặt + đồng hồ + gỡ khi đóng), byte thừa, UTF-8 chặt.
-    // Không có đột biến «bỏ c.off('data')»: TƯƠNG ĐƯƠNG — lần nhận sau chỉ chạy lại CHÍNH khung đầu (b luôn bắt đầu từ khung đầu),
+    // Không có đột biến «bỏ c.off('data')»: gần tương đương — chỉ khác khi kho đổi giữa hai chunk (anh Bỏ qua đề xuất, hoặc kết nối khác đổi phien_ban), ca này không test ổn định được. Lần nhận sau chỉ chạy lại CHÍNH khung đầu (b luôn bắt đầu từ khung đầu),
     // cùng khoa_lap ⇒ apGoi trả lap / deXuat trả id cũ / hoan ⇒ da_hoan, không ghi thêm; trả lời đã end. Đột biến chạy khung thừa ở dưới.
     ['tran-khung-ham', KER, 'export const TRAN_KHUNG = 64 * 1024;', 'export const TRAN_KHUNG = 64 * 1024 + 1;'],
     ['tran-khung-goi', KER, '      if (dai > TRAN_KHUNG) return c.destroy();', '      if (false) return c.destroy();'],
     ['tran-khung-bien', KER, 'if (dai > TRAN_KHUNG)', 'if (dai >= TRAN_KHUNG)'],
     ['han-5s-ham', KER, 'const HAN_KHUNG_MS = 5000;', 'const HAN_KHUNG_MS = 50000;'],
     ['han-5s-goi', KER, 'hen.setTimeout(() => c.destroy(), HAN_KHUNG_MS)', 'hen.setTimeout(() => {}, HAN_KHUNG_MS)'],
+    ['hen-mac-dinh', KER, 'hen = { setTimeout, clearTimeout }', 'hen = { setTimeout: () => 0, clearTimeout() {} }'],
+    ['nguon-ky-tu-dieu-khien', KER, ' && !/[\\u0000-\\u001f\\u007f]/.test(nguon[x])', ''],
     ['han-dong-ho-that', KER, 'const t = hen.setTimeout(', 'const t = setTimeout('],
     ['han-go-khi-dong', KER, "c.on('close', () => { ketNoi.delete(c); hen.clearTimeout(t); });", "c.on('close', () => { ketNoi.delete(c); });"],
     ['byte-thua-chay-tiep', KER, '      c.end(Buffer.concat([l, ra]));\n', '      c.end(Buffer.concat([l, ra]));\n      if (n > 4 + dai) xuLyKhung(ctx, b.subarray(8 + dai));\n'],
