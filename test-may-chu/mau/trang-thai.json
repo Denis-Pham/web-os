@@ -1,0 +1,20 @@
+{
+  "luoc_do": 1,
+  "gio_dung": "2026-11-12T03:00:00.000Z",
+  "xai_duoc": [
+    { "mach": "learning", "ten": "Nộp bài viết", "lam_gi": "Nộp một bài luyện viết, nhận chấm và sửa", "o_dau": "Trang Learning, nút «Nộp bài»" }
+  ],
+  "cho_anh": [
+    { "ma": "CA-000", "tieu_de": "Duyệt bản mẫu", "mach": "cos", "hanh_dong": "Xem bản mẫu rồi gật hoặc góp ý" }
+  ],
+  "suc_khoe": [
+    { "ten": "Máy chủ web-os", "trang_thai": "chạy" },
+    { "ten": "Sao lưu kho", "trang_thai": "bản giờ gần nhất 10:00" }
+  ],
+  "tien_do": [
+    { "mach": "cos", "buoc_ke": "Bật web chỉ đọc", "dang_lam": "Dựng máy chủ và kho" }
+  ],
+  "nhat_ky": [
+    { "luc": "2026-11-12T02:00:00.000Z", "dong": "Dựng lại trang Tổng quan" }
+  ]
+}

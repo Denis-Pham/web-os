@@ -135,7 +135,7 @@ test('socket: đường đã có không phải socket của uid mình ⇒ không
 test('cấu hình: cong + ngheSocket, thiếu cả hai, khoá lạ, thiếu khoá, sai kiểu, kernel trùng web ⇒ không khởi động, không nghe', async () => {
   const sai = [
     [{ cong: 0 }, [], /cong.*ngheSocket/], [{}, ['ngheSocket'], /cong.*ngheSocket/], [{ la: 1 }, [], /khoá lạ la/],
-    ...['teamDomain', 'aud', 'emails', 'ngheKernel', 'thuMucKho', 'cosGhi'].map(k => [{}, [k], new RegExp('thiếu ' + k)]),
+    ...['teamDomain', 'aud', 'emails', 'ngheKernel', 'thuMucKho', 'thuMucSaoLuu', 'cosGhi'].map(k => [{}, [k], new RegExp('thiếu ' + k)]),
     [{ emails: [] }, [], /emails/], [{ emails: 'anh@vi-du.vn' }, [], /emails/], [{ emails: ['khong-email'] }, [], /emails/],
     [{ cosGhi: 'false' }, [], /cosGhi/], [{ ngheKernel: 'k.s' }, [], /ngheKernel phải là đường tuyệt đối/],
     [{ thuMucBan: 1 }, [], /thuMucBan phải là đường tuyệt đối/], [{ uidCho: -1 }, [], /uidCho/],

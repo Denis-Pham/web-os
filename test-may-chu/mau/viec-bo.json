@@ -1,0 +1,8 @@
+{
+  "luoc_do": 1,
+  "gio_dung": "2026-11-12T03:00:00.000Z",
+  "viec": [
+    { "id": "v-0001", "ten": "Đóng học phí tháng 12", "han": "2026-11-15", "lap": null, "xong": false, "sua_luc": "2026-11-10T08:00:00.000Z" },
+    { "id": "v-0002", "ten": "Thay lõi lọc nước", "han": null, "lap": "hằng tháng", "xong": true, "sua_luc": null }
+  ]
+}

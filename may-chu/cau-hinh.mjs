@@ -4,8 +4,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const BAT_BUOC = ['teamDomain', 'aud', 'emails', 'ngheKernel', 'thuMucKho', 'cosGhi'];
-const TUY_CHON = ['ngheSocket', 'cong', 'thuMucBan', 'thuMucCho', 'uidCho', 'thuMucXuat', 'thuMucXuatVao', 'thuMucSaoLuu', 'tepKhoaAI'];
+const BAT_BUOC = ['teamDomain', 'aud', 'emails', 'ngheKernel', 'thuMucKho', 'thuMucSaoLuu', 'cosGhi'];   // thuMucSaoLuu bắt buộc từ A6: không chạy kho mà không sao lưu
+const TUY_CHON = ['ngheSocket', 'cong', 'thuMucBan', 'thuMucCho', 'uidCho', 'thuMucXuat', 'thuMucXuatVao', 'tepKhoaAI'];
 const DUONG = ['ngheSocket', 'ngheKernel', 'thuMucKho', 'thuMucBan', 'thuMucCho', 'thuMucXuat', 'thuMucXuatVao', 'thuMucSaoLuu', 'tepKhoaAI'];
 
 export function docCauHinh(duong) {

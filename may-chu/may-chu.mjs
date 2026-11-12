@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { docCauHinh } from './cau-hinh.mjs';
 import { taoKiemJwt } from './xac-thuc.mjs';
 import { moKho } from './kho.mjs';
+import { henSaoLuu } from './sao-luu.mjs';
 import { xuLy, tra } from './api.mjs';
 
 const sach = s => String(s).slice(0, 200).replace(/[^\x21-\x7e]/g, '?');
@@ -46,12 +47,14 @@ function kernelTam() {
   return s;
 }
 
-export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.stdout.write(s + '\n') } = {}) {
+// dongHo (chỉ test): đồng hồ giả cho bộ hẹn sao lưu ({ now, setTimeout, clearTimeout }).
+export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.stdout.write(s + '\n'), dongHo } = {}) {
   const ch = docCauHinh(duongCauHinh);
   const kiem = taoKiemJwt({ teamDomain: ch.teamDomain, aud: ch.aud, emails: ch.emails, ...(layJwks ? { layJwks } : {}) });
   const tepKho = path.join(ch.thuMucKho, 'kho.sqlite');
   fs.closeSync(fs.openSync(tepKho, 'a', 0o600));   // kho 0600 ngay từ lúc tạo (mục 1); SQLite tạo -wal/-shm theo mode tệp kho
   const db = moKho(tepKho);
+  const hen = henSaoLuu(db, ch, { dongHo, ghiLog });   // bản giờ + bản ngày 03:00 (A6)
   const ctx = { ch, kiem, db };
   const server = http.createServer((req, res) => {
     const t0 = performance.now(), p = (req.url || '').split('?')[0];
@@ -61,6 +64,7 @@ export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.st
   });
   const kernel = kernelTam();
   const dong = async () => {
+    hen.dung();
     for (const s of [server, kernel]) if (s.listening) await new Promise(r => { s.close(r); s.closeAllConnections(); });
     db.close();
   };
@@ -74,6 +78,10 @@ if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import
   const duong = process.argv[2];
   if (!duong) { process.stderr.write('thiếu đường cấu hình\n'); process.exit(2); }
   khoiDong(duong).then(
-    ({ cong, ngheSocket, ngheKernel }) => process.stderr.write(`nghe ${ngheSocket ?? '127.0.0.1:' + cong} · kernel ${ngheKernel}\n`),
+    ({ cong, ngheSocket, ngheKernel, dong }) => {
+      // Tắt êm: dừng bộ hẹn sao lưu, gỡ socket, đóng kho (checkpoint WAL) rồi mới thoát.
+      for (const tin of ['SIGTERM', 'SIGINT']) process.once(tin, () => dong().then(() => process.exit(0), () => process.exit(1)));
+      process.stderr.write(`nghe ${ngheSocket ?? '127.0.0.1:' + cong} · kernel ${ngheKernel}\n`);
+    },
     e => { process.stderr.write('không khởi động: ' + String(e?.message || 'lỗi').slice(0, 200).replace(/[\x00-\x1f\x7f]/g, ' ') + '\n'); process.exit(2); });
 }

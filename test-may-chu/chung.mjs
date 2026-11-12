@@ -29,7 +29,7 @@ export function moiTruong() {
   const cauHinh = (them = {}, bo = []) => {
     const n = so++, kho = path.join(tam, 'kho' + n);
     fs.mkdirSync(kho);
-    const c = { teamDomain: TEAM, aud: AUD, emails: [EMAIL], ngheSocket: path.join(tam, `w${n}.s`), ngheKernel: path.join(tam, `k${n}.s`), thuMucKho: kho, cosGhi: false, ...them };
+    const c = { teamDomain: TEAM, aud: AUD, emails: [EMAIL], ngheSocket: path.join(tam, `w${n}.s`), ngheKernel: path.join(tam, `k${n}.s`), thuMucKho: kho, thuMucSaoLuu: path.join(tam, 'sl' + n), cosGhi: false, ...them };
     for (const k of bo) delete c[k];
     const f = path.join(tam, `ch-${n}.json`); fs.writeFileSync(f, JSON.stringify(c)); return f;
   };

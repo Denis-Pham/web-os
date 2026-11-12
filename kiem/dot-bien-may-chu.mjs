@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000;
 const KHO = 'may-chu/kho.mjs', GOI = 'may-chu/goi.mjs';
 const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-chu.mjs', CH = 'may-chu/cau-hinh.mjs';
+const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs';
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -195,6 +196,85 @@ const NHOM = {
     ['kernel-trung-tho-ben-web', CH, '=== path.resolve(ch.ngheSocket)', '=== ch.ngheSocket'],
     ['kernel-trung-tho-ben-kernel', CH, 'path.resolve(ch.ngheKernel) ===', 'ch.ngheKernel ==='],
     ['kernel-trung-bo-chan-dev', CH, "Object.hasOwn(ch, 'ngheSocket') && path.resolve", 'path.resolve'],
+  ],
+  A6: [
+    // Bắt buộc Step 5: trần cỡ, trường lạ, so dấu khi sao lưu (hàm + chỗ gọi); lời gọi henSaoLuu và dung() trong may-chu.mjs
+    ['tran-co-ham', XU, "  if (n > tran) throw new Error('tệp xuất quá trần');\n", ''],
+    ['tran-co-goi', XU, 'docGioiHan(fd, tranByte)', 'docGioiHan(fd, tranByte + 1)'],
+    ['truong-la-ham', XU, '    && Object.keys(v).every(k => Object.hasOwn(luat, k))\n', ''],
+    ['truong-la-goi', XU, '  if (!hop(luocDo, du_lieu)) return hong();\n', ''],
+    ['so-dau-ham', SL, 'export function cungDau(a, b) {\n', 'export function cungDau(a, b) {\n  return true;\n'],
+    ['so-dau-goi', SL, "    if (!cungDau(kiemBan(tam), dau)) throw new Error('sao lưu: bản sao lệch bản sống');\n", '    kiemBan(tam);\n'],
+    ['hen-goi', MC, '  const hen = henSaoLuu(db, ch, { dongHo, ghiLog });', '  const hen = { dung() {} };'],
+    ['dung-goi', MC, '    hen.dung();\n', ''],
+    // Tệp xuất: trần mặc định, lược đồ đóng từng luật
+    ['tran-mac-dinh', XU, 'tranByte = 2 * 1024 * 1024,', 'tranByte = 2 * 1024 * 1024 + 1,'],
+    ['thieu-truong', XU, 'Object.hasOwn(v, k) && hop(luat[k], v[k])', '(!Object.hasOwn(v, k) || hop(luat[k], v[k]))'],
+    ['hang-luoc-do', XU, "if (typeof luat === 'number') return v === luat;", "if (typeof luat === 'number') return true;"],
+    ['chu-tran-500', XU, '[...v].length <= 500', '[...v].length <= 501'],
+    ['chu-dem-diem-ma', XU, '[...v].length <= 500', 'v.length <= 500'],
+    ['chu-null', XU, "if (luat === 'chu?') return v === null || hop('chu', v);", "if (luat === 'chu?') return true;"],
+    ['bool', XU, "if (luat === 'bool') return typeof v === 'boolean';", "if (luat === 'bool') return true;"],
+    ['dem-nguyen', XU, 'Number.isSafeInteger(v) && v >= 0', "typeof v === 'number' && v >= 0"],
+    ['dem-am', XU, ' && v >= 0;', ';'],
+    ['iso-ham', XU, "if (luat === 'iso') return laIso(v);", "if (luat === 'iso') return true;"],
+    ['iso-ngay-co-that', XU, ' && Number(m[3]) <= new Date(Date.UTC(Number(m[1]), Number(m[2]), 0)).getUTCDate()', ''],
+    ['iso-neo-dau', XU, 'const ISO = /^(', 'const ISO = /('],
+    ['iso-neo-cuoi', XU, ':[0-5]\\d)$/;', ':[0-5]\\d)/;'],
+    ['iso-mui-gio', XU, '2[0-3]):[0-5]\\d)$/;', '2[0-3]):[0-5]\\d)?$/;'],
+    ['mang-200', XU, 'v.length <= 200', 'v.length <= 201'],
+    ['mang-phan-tu', XU, ' && v.every(x => hop(luat[0], x))', ''],
+    // Mở tệp (symlink, FIFO), thiếu tệp, bản tốt cuối, cũ
+    ['nofollow', XU, ' | fs.constants.O_NOFOLLOW', ''],
+    ['nonblock', XU, ' | fs.constants.O_NONBLOCK', ''],
+    ['thieu-ma', XU, "e.code === 'ENOENT' ?", 'false ?'],
+    ['tot-cuoi-tra', XU, ', ...TOT_CUOI.get(duong) });', ' });'],
+    ['tot-cuoi-ghi', XU, '  TOT_CUOI.set(duong, { du_lieu, gio_dung: du_lieu.gio_dung });\n', ''],
+    ['cu-nguong', XU, 'cuSauMs = 3 * 3600 * 1000', 'cuSauMs = 4 * 3600 * 1000'],
+    ['cu-bo', XU, "> cuSauMs ? 'cu' : 'tot'", "> Infinity ? 'cu' : 'tot'"],
+    // so-dem.json: chỉ số, đếm đúng, ghi nguyên tử, 0644, dọn tạm khi lỗi
+    ['so-dem-lo-chu', XU, "de_xuat_cho: dem(\"SELECT count(*) AS n FROM de_xuat WHERE trang_thai = 'cho'\"),", "de_xuat_cho: dem(\"SELECT count(*) AS n FROM de_xuat WHERE trang_thai = 'cho'\"), mau: db.prepare('SELECT tieu_de FROM viec').get()?.tieu_de,"],
+    ['so-dem-xong', XU, ' AND xong_luc IS NULL', ''],
+    ['so-dem-han-gio', XU, 'homNay, vn.slice(0, 16))', 'homNay, homNay)'],
+    ['so-dem-gio-vn', XU, 'luc.getTime() + 7 * 3600e3', 'luc.getTime()'],
+    ['so-dem-lich-phu', XU, 'substr(coalesce(ket_thuc, bat_dau), 1, 10) >= ?', 'substr(bat_dau, 1, 10) >= ?'],
+    ['so-dem-de-xuat-cho', XU, "FROM de_xuat WHERE trang_thai = 'cho'", 'FROM de_xuat'],
+    ['so-dem-nguyen-tu', XU, "fs.renameSync(tam, path.join(thuMucXuat, 'so-dem.json'));", "fs.writeFileSync(path.join(thuMucXuat, 'so-dem.json'), fs.readFileSync(tam)); fs.rmSync(tam);"],
+    ['so-dem-0644', XU, '    fs.chmodSync(tam, 0o644);\n', ''],
+    ['so-dem-don-tam', XU, '  } catch (e) { fs.rmSync(tam, { force: true }); throw e; }', '  } catch (e) { throw e; }'],
+    // Sao lưu: integrity_check (hàm + chỗ gọi), quyền, số giữ, mẫu tên, dọn khi lỗi, dấu mọi bảng, diễn tập đọc <tep>.json
+    ['integrity-ham', SL, "    if (Object.values(db.prepare('PRAGMA integrity_check').get())[0] !== 'ok') throw new Error('sao lưu: integrity_check hỏng');\n", ''],
+    ['integrity-goi', SL, 'cungDau(kiemBan(tam), dau)', 'cungDau((d => { try { return dauVanTay(d); } finally { d.close(); } })(new DatabaseSync(tam, { readOnly: true })), dau)'],
+    ['mode-tep-0600', SL, "fs.openSync(tam, 'wx', 0o600)", "fs.openSync(tam, 'wx', 0o644)"],
+    ['mode-dau-0600', SL, "{ mode: 0o600, flag: 'wx' }", "{ mode: 0o644, flag: 'wx' }"],
+    ['mode-thu-muc-0700', SL, 'mode: 0o700', 'mode: 0o755'],
+    ['giu-gio-48', SL, 'gio: 48, ngay: 14', 'gio: 49, ngay: 14'],
+    ['giu-ngay-14', SL, 'gio: 48, ngay: 14', 'gio: 48, ngay: 15'],
+    ['ten-neo-dau', SL, 'gio: /^kho-gio-', 'gio: /kho-gio-'],
+    ['ten-neo-cuoi', SL, 'kho-gio-\\d{8}-\\d{4}\\.sqlite$/', 'kho-gio-\\d{8}-\\d{4}\\.sqlite/'],
+    ['ten-theo-loai', SL, '.filter(f => TEN[loai].test(f))', '.filter(f => TEN.gio.test(f))'],
+    ['don-kem-json', SL, " fs.rmSync(path.join(thuMuc, f + '.json'), { force: true });", ''],
+    ['loai-sai', SL, "  if (!Object.hasOwn(GIU, loai)) throw new Error('sao lưu: loai phải là gio hoặc ngay');\n", ''],
+    ['ten-gio-vn', SL, 'new Date(bayGio).getTime() + VN', 'new Date(bayGio).getTime()'],
+    ['don-tam-cu', SL, '  don();\n  const dau', '  const dau'],
+    ['loi-khong-don', SL, "  } catch (e) { don(); if (jXong) fs.rmSync(dich + '.json', { force: true }); throw e; }", '  } catch (e) { throw e; }'],
+    ['dau-bo-loc-sqlite', SL, "type = 'table' AND substr(name, 1, 7) <> 'sqlite_'", "type = 'table'"],
+    ['dau-bam-dong', SL, "h.update(JSON.stringify(r)); h.update('\\n'); n++;", 'n++;'],
+    ['khoi-phuc-so', SL, 'return { khop: cungDau(ra, mong), mong, ra };', 'return { khop: true, mong, ra };'],
+    ['khoi-phuc-dau-tep', SL, "JSON.parse(fs.readFileSync(tep + '.json', 'utf8'))", 'kiemBan(tep)'],
+    // Bộ hẹn: chu kỳ giờ, 03:00 giờ VN, hẹn lại theo giờ mới, dung(), lỗi không thoát ra
+    ['hen-chu-ky-gio', SL, "dat('gio', GIO, 0);", "dat('gio', 2 * GIO, 0);"],
+    ['hen-ngay-03h-vn', SL, "dat('ngay', NGAY, 3 * GIO - VN);", "dat('ngay', NGAY, 3 * GIO);"],
+    ['hen-lai', SL, '      dat(loai, chuKy, lech);\n', ''],
+    ['hen-tu-gio-moi', SL, 'toiMoc(dongHo.now(), chuKy, lech)', 'chuKy'],
+    ['dung-ham', SL, 'return { dung() { for (const t of Object.values(hen)) dongHo.clearTimeout(t); } };', 'return { dung() {} };'],
+    ['hen-bat-loi', SL, '      catch (e) { ghiLog(`LỖI sao lưu ${loai}: ${sach(e)}`); }', '      catch (e) { throw e; }'],
+    // Tắt êm khi nhận tín hiệu; thuMucSaoLuu bắt buộc
+    ['tin-sigterm', MC, "['SIGTERM', 'SIGINT']", "['SIGINT']"],
+    ['tin-sigint', MC, "['SIGTERM', 'SIGINT']", "['SIGTERM']"],
+    ['tin-thoat-0', MC, 'dong().then(() => process.exit(0)', 'dong().then(() => process.exit(1)'],
+    ['tin-khong-dong', MC, 'process.once(tin, () => dong().then(', 'process.once(tin, () => Promise.resolve().then('],
+    ['sao-luu-bat-buoc', CH, "'thuMucSaoLuu', 'cosGhi'];   // thuMucSaoLuu bắt buộc từ A6: không chạy kho mà không sao lưu\nconst TUY_CHON = ['ngheSocket',", "'cosGhi'];\nconst TUY_CHON = ['thuMucSaoLuu', 'ngheSocket',"],
   ],
 };
 
