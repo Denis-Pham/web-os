@@ -20,6 +20,7 @@ export function docCauHinh(duong) {
   if (Object.hasOwn(ch, 'cong') && (!Number.isInteger(ch.cong) || ch.cong < 0 || ch.cong > 65535)) throw new Error('cấu hình: cong sai');
   if (Object.hasOwn(ch, 'uidCho') && (!Number.isInteger(ch.uidCho) || ch.uidCho < 0)) throw new Error('cấu hình: uidCho phải là số nguyên ≥ 0');
   for (const k of DUONG) if (Object.hasOwn(ch, k) && (typeof ch[k] !== 'string' || !path.isAbsolute(ch[k]) || ch[k].includes('\0'))) throw new Error('cấu hình: ' + k + ' phải là đường tuyệt đối');
-  if (ch.ngheKernel === ch.ngheSocket) throw new Error('cấu hình: ngheKernel trùng ngheSocket');   // nghe() sẽ gỡ socket web của chính mình để thay bằng kernel
+  // So sau chuẩn hoá (`//`, `/./`, `x/../`): trùng thì nghe() sẽ gỡ socket web của chính mình để thay bằng kernel. Dev (cong) không có ngheSocket.
+  if (Object.hasOwn(ch, 'ngheSocket') && path.resolve(ch.ngheKernel) === path.resolve(ch.ngheSocket)) throw new Error('cấu hình: ngheKernel trùng ngheSocket');
   return { ngheSocket: null, ...ch };
 }

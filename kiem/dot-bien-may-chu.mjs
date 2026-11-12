@@ -168,6 +168,7 @@ const NHOM = {
     // Trần thân 64 KiB (hàm + chỗ gọi)
     ['tran-than-ham', API, 'export const TRAN_THAN = 64 * 1024;', 'export const TRAN_THAN = 65 * 1024;'],
     ['tran-than-goi', API, "    if (than === null) return traJson(res, 413, { loi: 'than_qua_lon' });\n", ''],
+    ['tran-than-chi-content-length', API, "req.on('end', () => ok(qua(n) ? null : Buffer.concat(ds)));", "req.on('end', () => ok(qua(Number(req.headers['content-length'] ?? 0)) ? null : Buffer.concat(ds)));"],
     // Ánh xạ lỗi route: LoiGoi ⇒ e.ma chung; lỗi khác ⇒ 500 không lộ thông điệp
     ['loi-goi-ma', API, '? traJson(res, e.ma, { loi: e.loi', '? traJson(res, 400, { loi: e.loi'],
     ['loi-khac-lo', API, "traJson(res, 500, { loi: 'loi_may_chu' }); }", 'traJson(res, 500, { loi: String(e.message) }); }'],
@@ -190,6 +191,10 @@ const NHOM = {
     ['kieu-uid-cho', CH, "throw new Error('cấu hình: uidCho phải là số nguyên ≥ 0');", '0;'],
     ['kieu-duong', CH, "throw new Error('cấu hình: ' + k + ' phải là đường tuyệt đối');", '0;'],
     ['kernel-trung-web', CH, "throw new Error('cấu hình: ngheKernel trùng ngheSocket');", '0;'],
+    ['kernel-trung-tho', CH, 'path.resolve(ch.ngheKernel) === path.resolve(ch.ngheSocket)', 'ch.ngheKernel === ch.ngheSocket'],
+    ['kernel-trung-tho-ben-web', CH, '=== path.resolve(ch.ngheSocket)', '=== ch.ngheSocket'],
+    ['kernel-trung-tho-ben-kernel', CH, 'path.resolve(ch.ngheKernel) ===', 'ch.ngheKernel ==='],
+    ['kernel-trung-bo-chan-dev', CH, "Object.hasOwn(ch, 'ngheSocket') && path.resolve", 'path.resolve'],
   ],
 };
 

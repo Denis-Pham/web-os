@@ -86,7 +86,27 @@ test('thứ tự cổng: vé trước CSRF, cả hai trước đọc thân; tr�
   assert.equal(await treo(DAU_GHI), 'treo', 'đối chứng: qua hai cổng ⇒ chờ đọc thân');
   assert.equal((await goi(m, '/api/khong-co', { method: 'POST', dau: DAU_GHI, than: 'x'.repeat(64 * 1024 + 1) })).ma, 413, '64 KiB + 1 ⇒ 413');
   assert.equal((await goi(m, '/api/khong-co', { method: 'POST', dau: DAU_GHI, than: 'x'.repeat(64 * 1024) })).ma, 404, 'đúng 64 KiB ⇒ qua trần');
+  // Thân chunked (không Content-Length): trần đếm byte thật. Header đo ở phía máy chủ nhận.
+  const manh = Array(4).fill('x'.repeat(16 * 1024));
+  for (const [ds, ma, ten] of [[[...manh, 'x'], 413, 'chunked 64 KiB + 1 ⇒ 413'], [manh, 404, 'chunked đúng 64 KiB ⇒ qua trần']]) {
+    const [kq, nhan] = await chunked(ds);
+    assert.equal(nhan['content-length'], undefined, ten); assert.equal(nhan['transfer-encoding'], 'chunked', ten);
+    assert.equal(kq, ma, ten);
+  }
 });
+
+// Gửi thân theo từng mảnh, Transfer-Encoding: chunked; trả [mã, header máy chủ nhận được].
+function chunked(ds) {
+  return new Promise((ok, loi) => {
+    let nhan;
+    m.server.once('request', req => { nhan = req.headers; });
+    const r = http.request({ socketPath: m.ngheSocket, path: '/api/khong-co', method: 'POST', agent: false,
+      headers: { 'Cf-Access-Jwt-Assertion': VE, ...DAU_GHI, 'Transfer-Encoding': 'chunked' } }, res => { res.resume(); res.on('end', () => ok([res.statusCode, nhan])); });
+    r.on('error', loi);
+    for (const d of ds) r.write(d);
+    r.end();
+  });
+}
 
 test('socket: web + kernel mode 0660, không TCP; socket cũ của chính mình ⇒ thay được', async () => {
   assert.equal(typeof m.server.address(), 'string'); assert.equal(m.cong, null);
@@ -129,6 +149,13 @@ test('cấu hình: cong + ngheSocket, thiếu cả hai, khoá lạ, thiếu kho�
   const trung = path.join(mt.tam, 'trung.s');
   assert.match(String((await mt.thuKhoi(mt.cauHinh({ ngheSocket: trung, ngheKernel: trung })))?.message), /ngheKernel trùng ngheSocket/);
   assert.ok(!fs.existsSync(trung));
+  // Cùng một đường viết khác chữ (`//`, `/./`, `x/../`, ở bên kernel lẫn bên web) ⇒ vẫn trùng; đối chứng: đường khác thật ⇒ nhận.
+  const t0 = mt.tam;
+  for (const [web, ker] of [[path.join(t0, 'tr1.s'), t0 + '//tr1.s'], [t0 + '/./tr2.s', path.join(t0, 'tr2.s')], [path.join(t0, 'tr3.s'), t0 + '/x/../tr3.s']]) {
+    assert.match(String((await mt.thuKhoi(mt.cauHinh({ ngheSocket: web, ngheKernel: ker })))?.message), /ngheKernel trùng ngheSocket/, web + ' | ' + ker);
+    assert.ok(!fs.existsSync(path.resolve(web)), 'lỗi cấu hình mà vẫn nghe ' + web);
+  }
+  assert.equal(await mt.thuKhoi(mt.cauHinh({ ngheSocket: t0 + '//w-khac.s', ngheKernel: t0 + '/./k-khac.s' })), null, 'đối chứng: đường khác thật ⇒ nhận');
   // Đối chứng: đủ danh sách khoá đóng (tuỳ chọn hợp lệ) ⇒ khởi động; cong (dev) ⇒ chỉ 127.0.0.1, vé đúng ⇒ 200
   const t = mt.tam;
   assert.equal(await mt.thuKhoi(mt.cauHinh({ thuMucBan: t, thuMucCho: t, uidCho: 0, thuMucXuat: t, thuMucXuatVao: t, thuMucSaoLuu: t, tepKhoaAI: t, cosGhi: true })), null);
