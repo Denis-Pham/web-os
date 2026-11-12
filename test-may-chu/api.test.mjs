@@ -79,7 +79,21 @@ test('khách không chọn được chủ thể/nguồn: trường lạ trong th
     assert.deepEqual([r.ma, r.json], [400, { loi: 'luoc_do', chi_tiet: { ly_do: 'khoa_la' } }], JSON.stringify(la));
     assert.equal(anhKho(m.db), truoc);
   }
-  for (const t of ['{', '[]', 'null', '"x"', '1', '']) assert.deepEqual((await post(m, '/api/goi', t)).json, { loi: 'json' }, `thân ${t}`);
+  for (const t of ['{', '[]', 'null', '"x"', '1', '', '\ufeff{}']) assert.deepEqual((await post(m, '/api/goi', t)).json, { loi: 'json' }, `thân ${t}`);
+  // Byte UTF-8 hỏng (0xFF) ⇒ 400 json, không thành U+FFFD trong kho; đối chứng: cùng thân UTF-8 đúng ⇒ 200 (soát A3)
+  const thanUtf8 = tieu => Buffer.concat([Buffer.from(`{"khoa_lap":"${khoa()}","ops":[{"loai":"them","bang":"viec","truong":{"tieu_de":"a`), tieu, Buffer.from('"}}]}')]);
+  const anhUtf = anhKho(m.db), hongU = await goi(m, '/api/goi', { method: 'POST', dau: DAU_GHI, than: thanUtf8(Buffer.from([0xff])) });
+  assert.deepEqual([hongU.ma, hongU.json, anhKho(m.db)], [400, { loi: 'json' }, anhUtf]);
+  assert.equal((await goi(m, '/api/goi', { method: 'POST', dau: DAU_GHI, than: thanUtf8(Buffer.from('ê')) })).ma, 200, 'đối chứng UTF-8 đúng');
+  for (const t of [{}, { ma_hoan: 1 }, { ma_hoan: null }]) assert.deepEqual((await post(m, '/api/hoan', t)).json, { loi: 'luoc_do', chi_tiet: { ly_do: 'ma_hoan' } }, JSON.stringify(t));
+  // Route không nhận query (mọi lệnh ghi, /api/phien): query khác rỗng ⇒ 400, không ghi; đối chứng: không query ⇒ qua (soát A3)
+  const anhQ = anhKho(m.db), U2 = randomUUID();
+  for (const [d, t] of [['/api/goi?x=1', { khoa_lap: khoa(), ops }], ['/api/goi?khoa_lap=abcdefgh', { khoa_lap: khoa(), ops }], ['/api/hoan?x=1', { ma_hoan: 'f'.repeat(32) }],
+    [`/api/de-xuat/${U2}/bo-qua?x=1`, {}], [`/api/de-xuat/${U2}/ap-dung?x=1`, { khoa_lap: khoa() }], [`/api/cai-tien/${U2}/trang-thai?x=1`, { trang_thai: 'bo', phien_ban: 1 }]])
+    assert.deepEqual((await post(m, d, t)).json?.loi, 'query', d);
+  assert.equal(anhKho(m.db), anhQ);
+  assert.deepEqual((await goi(m, '/api/phien?x=1')).json?.loi, 'query', '/api/phien?x=1');
+  assert.equal((await post(m, '/api/goi?', { khoa_lap: khoa(), ops })).ma, 200, 'đối chứng: «?» rỗng ⇒ qua');
   for (const [duong, t] of [['/api/hoan', { ma_hoan: 'x', chu_the: 'neo' }], [`/api/cai-tien/${U}/trang-thai`, { trang_thai: 'bo', phien_ban: 1, khoa_lap: 'abcdefgh' }],
     [`/api/de-xuat/${U}/ap-dung`, { khoa_lap: khoa(), chu_the: 'neo' }], [`/api/de-xuat/${U}/bo-qua`, { nguon: 'web' }]])
     assert.deepEqual((await post(m, duong, t)).json, { loi: 'luoc_do', chi_tiet: { ly_do: 'khoa_la' } }, duong);
@@ -157,6 +171,8 @@ test('đề xuất: GET chỉ «cho» · Bỏ qua ⇒ goi_ghi và lịch sử Ho
   assert.deepEqual(bang(mD.db, 'viec'), ky);
   assert.deepEqual(bang(mD.db, 'lich'), lichTruoc);
   assert.deepEqual({ ...mD.db.prepare('SELECT trang_thai, goi_id FROM de_xuat WHERE id = ?').get(doiHan) }, { trang_thai: 'ap_dung', goi_id: ad.json.goi_id });
+  const anhAd = anhKho(mD.db), lai = await post(mD, `/api/de-xuat/${doiHan}/ap-dung`, { khoa_lap: khoa() });   // đề xuất sua, lần hai khoá khác (soát A3)
+  assert.deepEqual([lai.ma, lai.json, anhKho(mD.db)], [409, { loi: 'de_xuat_da_xu_ly' }, anhAd]);
   // Áp dụng thêm (K1): đúng MỘT dòng mới, đúng giá trị, dòng cũ y nguyên
   const K2 = khoa(), ad2 = await post(mD, `/api/de-xuat/${themViec}/ap-dung`, { khoa_lap: K2 });
   assert.equal(ad2.ma, 200, ad2.than);

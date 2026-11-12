@@ -334,7 +334,7 @@ const NHOM = {
     ['id-neo-cuoi', API, '[0-9a-f]{12}$/;', '[0-9a-f]{12}/;'],
     ['id-giai-ma', API, "const doan = p.split('/'),", "const doan = p.split('/').map(decodeURIComponent),"],
     ['id-literal', API, " || (id === null && khoa.includes(':id'))", ''],
-    ['id-truyen', API, 'raw.slice(q + 1), id }); }', 'raw.slice(q + 1) }); }'],
+    ['id-truyen', API, 'query, id }); }', 'query }); }'],
     ['tra-tho', API, 'if (o instanceof TraTho) return tra(', 'if (false) return tra('],
     // Việc, đề xuất, tiến độ, cải tiến: lọc
     ['viec-mo', API, "[q.mo === '1' ? 'AND xong_luc IS NULL' : '', ", "['', "],
@@ -485,6 +485,20 @@ const NHOM = {
     ['doc-viec-mach-goi', KER, "    chuoi(tt, 'mach');\n", ''],
     ['doc-lich-tu', KER, "chuoi(tt, 'tu'); ", ''],
     ['doc-lich-den', KER, " chuoi(tt, 'den');", ''],
+  ],
+  A5: [
+    // Parked soát A3 — 1: đề xuất đã xử lý ⇒ 409 de_xuat_da_xu_ly TRƯỚC apGoi (hàm + chỗ gọi + điều kiện khoá)
+    ['dx-con-cho-ham', GOI, "  if (dx.trang_thai === 'cho') return;\n", '  return;\n'],
+    ['dx-con-cho-goi', GOI, '  kiemConCho(db, dx, khoa_lap);\n', ''],
+    ['dx-con-cho-khoa', GOI, 'WHERE id = ? AND khoa_lap = ?', 'WHERE id = ? AND ? IS NOT NULL'],
+    // 2: thân UTF-8 hỏng ⇒ 400 json (hàm + chỗ gọi); /api/hoan thiếu ma_hoan ⇒ 400 luoc_do
+    ['utf8-fatal-ham', API, "new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })", "new TextDecoder('utf-8', { fatal: false, ignoreBOM: true })"],
+    ['utf8-fatal-goi', API, 'JSON.parse(UTF8.decode(than))', "JSON.parse(than.toString('utf8'))"],
+    ['hoan-ma-hoan-luoc-do', API, "    if (typeof ma_hoan !== 'string') throw new LoiGoi(400, 'luoc_do', { ly_do: 'ma_hoan' });", ''],
+    // 3: route không nhận query ⇒ query khác rỗng 400 (hàm docQuery + chỗ gọi lệnh ghi + /api/phien)
+    ['query-ham', API, 'function docQuery(query, khoa) {\n  const o = {};\n', 'function docQuery(query, khoa) {\n  const o = {};\n  return o;\n'],
+    ['query-ghi-goi', API, 'if (than !== null) docQuery(query, []); ', ''],
+    ['query-phien-goi', API, '({ ve, query }) => { docQuery(query, []); return', '({ ve, query }) => { return'],
   ],
 };
 

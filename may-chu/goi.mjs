@@ -242,10 +242,18 @@ export function boQuaDeXuat(db, { id, chu_the, nguon }, bayGio) {
   return { trang_thai: 'bo_qua' };
 }
 
+// Đề xuất đã xử lý ⇒ 409 TRƯỚC apGoi (đề xuất `sua` lần hai khác khoá từng ra 409 phien_ban — soát A3);
+// trừ đúng khoá của gói đã áp (bấm hai lần ⇒ apGoi trả gói cũ). Bỏ qua (goi_id null) ⇒ luôn 409.
+function kiemConCho(db, dx, khoa_lap) {
+  if (dx.trang_thai === 'cho') return;
+  if (typeof khoa_lap !== 'string' || !db.prepare('SELECT 1 FROM goi_ghi WHERE id = ? AND khoa_lap = ?').get(dx.goi_id, khoa_lap)) throw new LoiGoi(409, 'de_xuat_da_xu_ly');
+}
+
 // Áp dụng: chạy ĐÚNG ops đã lưu qua apGoi (kiemOps + kiemQuyen lại); đổi de_xuat trong CÙNG giao dịch với gói ⇒ hai lần ⇒ 409, một gói.
 export function apDungDeXuat(db, { id, khoa_lap, chu_the, nguon }, bayGio) {
   kiemNguoiDuyet(chu_the, nguon);
   const dx = layDeXuat(db, id);
+  kiemConCho(db, dx, khoa_lap);
   const kq = apGoi(db, { khoa_lap, chu_the, nguon, ops: JSON.parse(dx.ops) }, bayGio, goi_id => doiDeXuat(db, dx, 'ap_dung', goi_id, chu_the, bayGio));
   // khoa_lap lặp (bấm hai lần) ⇒ apGoi trả gói cũ: chỉ nhận khi đó đúng là gói của đề xuất này.
   if (kq.lap && kq.goi_id !== dx.goi_id) throw new LoiGoi(409, 'khoa_lap_trung');

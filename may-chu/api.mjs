@@ -50,9 +50,11 @@ const iso = ctx => new Date(ctx.bayGio()).toISOString();
 const gioVn = ctx => new Date(ctx.bayGio() + 7 * 3600e3).toISOString();   // giờ VN UTC+7 (GIẢ ĐỊNH thiết kế 8): slice 10 = ngày, 16 = phút
 // Một cổng cho mọi route ghi kho: gọi ĐẦU handler, trước mọi đọc thân/kho.
 function kiemCosGhi(ctx) { if (ctx.ch.cosGhi !== true) throw new LoiGoi(423, 'cos_ghi_tat'); }
+// fatal: byte UTF-8 hỏng ⇒ ném (Buffer.toString thay bằng U+FFFD rồi lưu — soát A3); ignoreBOM: giữ BOM ⇒ JSON.parse từ chối như trước.
+const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 function docJson(than, khoa) {
   let o;
-  try { o = JSON.parse(than.toString('utf8')); } catch { throw new LoiGoi(400, 'json'); }
+  try { o = JSON.parse(UTF8.decode(than)); } catch { throw new LoiGoi(400, 'json'); }
   if (typeof o !== 'object' || o === null || Array.isArray(o)) throw new LoiGoi(400, 'json');
   for (const k of Object.keys(o)) if (!khoa.includes(k)) throw new LoiGoi(400, 'luoc_do', { ly_do: 'khoa_la' });
   return o;
@@ -102,7 +104,7 @@ const khoiTep = (kq, lay) => ({ trang_thai: kq.trang_thai, du_lieu: kq.du_lieu =
 // 'PHƯƠNG_THỨC /đường' → ({ ctx, ve, than, query, id }) ⇒ object trả 200 | TraTho | ném LoiGoi. HEAD tra như GET.
 // Đoạn ':id' chỉ khớp UUID chữ thường (id kho là randomUUID()), không giải mã %.
 export const ROUTE = {
-  'GET /api/phien': ({ ve }) => ({ email: ve.email, het_luc: ve.het_luc }),
+  'GET /api/phien': ({ ve, query }) => { docQuery(query, []); return { email: ve.email, het_luc: ve.het_luc }; },
   'GET /api/viec': ({ ctx, query }) => {
     const q = docQuery(query, ['mo', 'mach']);
     if (q.mo !== undefined && q.mo !== '1') throw saiQuery('mo');
@@ -124,6 +126,7 @@ export const ROUTE = {
   'POST /api/hoan': ({ ctx, than }) => {
     kiemCosGhi(ctx);
     const { ma_hoan } = docJson(than, ['ma_hoan']);
+    if (typeof ma_hoan !== 'string') throw new LoiGoi(400, 'luoc_do', { ly_do: 'ma_hoan' });   // thiếu/sai kiểu là lược đồ, không phải 404 (soát A3)
     return hoanTac(ctx.db, { ma_hoan, ...ANH }, iso(ctx));
   },
   'GET /api/nhat-ky': ({ ctx, query }) => {
@@ -221,8 +224,10 @@ export async function xuLy(ctx, req, res) {
   if (i >= 0) doan[i] = ':id';
   const khoa = `${req.method === 'HEAD' ? 'GET' : req.method} ${doan.join('/')}`;
   if (!Object.hasOwn(ROUTE, khoa) || (id === null && khoa.includes(':id'))) return traJson(res, 404, { loi: 'khong_co' });
+  const query = q < 0 ? '' : raw.slice(q + 1);
   let o;
-  try { o = await ROUTE[khoa]({ ctx, ve, than, query: q < 0 ? '' : raw.slice(q + 1), id }); }
+  // Lệnh ghi (than ≠ null) không nhận query: khác rỗng ⇒ 400, trước handler (soát A3: POST bỏ qua query lạ).
+  try { if (than !== null) docQuery(query, []); o = await ROUTE[khoa]({ ctx, ve, than, query, id }); }
   catch (e) { return e instanceof LoiGoi ? traJson(res, e.ma, { loi: e.loi, ...(e.chi_tiet === null ? {} : { chi_tiet: e.chi_tiet }) }) : traJson(res, 500, { loi: 'loi_may_chu' }); }
   if (o instanceof TraTho) return tra(res, 200, o.than, o.loai, { 'Content-Disposition': `attachment; filename="${o.ten_tep}"` });
   return traJson(res, 200, o);

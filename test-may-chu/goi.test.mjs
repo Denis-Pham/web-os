@@ -436,6 +436,7 @@ test('15 apDungDeXuat: chạy đúng ops đã lưu (một gói anh, Hoàn tác �
   const truoc = anhKho(db);
   assert.deepEqual(apDung(db, id, { khoa_lap: 'ap-dung-mot' }), kq, 'bấm hai lần cùng khoá ⇒ cùng gói');
   assert.equal(anhKho(db), truoc);
+  hong(db, () => apDung(db, id), 409, 'de_xuat_da_xu_ly');   // đề xuất sua, khoá khác: đã xử lý (không phải phien_ban của gói) — soát A3
   const id2 = dx(db, V({ tieu_de: 'Mua quà' }));
   duoc(db, () => apDung(db, id2));
   hong(db, () => apDung(db, id2), 409, 'de_xuat_da_xu_ly');   // khác khoá, ops them vẫn chạy được ⇒ chỉ điều kiện trên de_xuat chặn
@@ -443,6 +444,13 @@ test('15 apDungDeXuat: chạy đúng ops đã lưu (một gói anh, Hoàn tác �
   assert.deepEqual([db.prepare("SELECT count(*) AS n FROM viec WHERE tieu_de = 'Mua quà'").get().n, dem(db, 'goi_ghi')], [1, 3]);
   hoan(db, kq.ma_hoan);
   assert.equal(dong(db, 'viec', b.id).han, '2026-11-15');
+  // Đổi de_xuat hỏng SAU khi gói đã ghi (trigger chặn UPDATE) ⇒ cả gói lùi: không gói mới, kho y nguyên.
+  const id3 = dx(db, V({ tieu_de: 'Lùi cùng gói' })), truoc3 = anhKho(db);
+  db.exec("CREATE TRIGGER chan_de_xuat BEFORE UPDATE ON de_xuat BEGIN SELECT RAISE(ABORT, 'chan'); END;");
+  assert.throws(() => apDung(db, id3), /chan/);
+  db.exec('DROP TRIGGER chan_de_xuat');
+  assert.equal(anhKho(db), truoc3);
+  duoc(db, () => apDung(db, id3));   // đối chứng: bỏ trigger ⇒ áp được
 });
 
 test('16 apDungDeXuat: kiemOps + kiemQuyen chạy lại; chỉ anh · web/de_xuat; khoa_lap của gói khác ⇒ 409, đề xuất vẫn cho; không có ⇒ 404', () => {

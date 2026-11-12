@@ -72,9 +72,9 @@ test('kho tạo mới mode 0600', async () => {
 
 test('log: không ghi vé, không ghi query', async () => {
   log.length = 0;
-  await goi(m, '/api/phien?ve=BI-MAT-Q');
+  await goi(m, '/api/viec?mach=BI-MAT-Q');   // /api/phien không nhận query (A5) ⇒ đo trên route nhận query, trả 200
   await new Promise(r => setImmediate(r));
-  assert.ok(log.some(s => s.includes(' GET /api/phien 200 ')), 'không có dòng log — phép đo không chạy');
+  assert.ok(log.some(s => s.includes(' GET /api/viec 200 ')), 'không có dòng log — phép đo không chạy');
   assert.ok(log.every(s => !s.includes(VE) && !s.includes(VE.split('.')[2]) && !s.includes('BI-MAT')));
 });
 
