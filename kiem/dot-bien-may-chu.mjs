@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000;
 const KHO = 'may-chu/kho.mjs', GOI = 'may-chu/goi.mjs';
+const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-chu.mjs', CH = 'may-chu/cau-hinh.mjs';
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -128,6 +129,67 @@ const NHOM = {
     ['kieu-quyen-nguon', GOI, "typeof loai === 'string' && ", ''],
     ['chu-the-ap-goi', GOI, "  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  const nguonJson = kiemNguon(nguon);\n  const chuan", '  const nguonJson = kiemNguon(nguon);\n  const chuan'],
     ['chu-the-hoan-tac', GOI, "  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  const nguonJson = kiemNguon(nguon);\n  return", '  const nguonJson = kiemNguon(nguon);\n  return'],
+  ],
+  A2: [
+    // Bắt buộc Step 5: chữ ký, aud, email, iss (hàm + chỗ gọi trong kiem); kiemCsrf (hàm + chỗ gọi ở bộ định tuyến chung)
+    ['chu-ky-ham', XT, 'function kiemChuKy(phan, k) {\n', 'function kiemChuKy(phan, k) {\n  return;\n'],
+    ['chu-ky-goi', XT, '    kiemChuKy(phan, k);\n', ''],
+    ['aud-ham', XT, 'function kiemAud(p, aud) {', 'function kiemAud(p, aud) { return;'],
+    ['aud-goi', XT, '    kiemAud(p, aud);\n', ''],
+    ['email-ham', XT, 'function kiemEmail(p, emails) {\n', 'function kiemEmail(p, emails) {\n  return;\n'],
+    ['email-goi', XT, '    kiemEmail(p, choPhep);\n', ''],
+    ['iss-ham', XT, 'function kiemIss(p, iss) {\n', 'function kiemIss(p, iss) {\n  return;\n'],
+    ['iss-goi', XT, '    kiemIss(p, iss);\n', ''],
+    ['csrf-ham', API, 'export function kiemCsrf(req) {\n', 'export function kiemCsrf(req) {\n  return true;\n'],
+    ['csrf-goi', API, "    if (!kiemCsrf(req)) return traJson(res, 403, { loi: 'csrf' });\n", ''],
+    // Hạn vé, JWKS lỗi không dùng khoá cũ, het_luc, mã 403 email
+    ['han-ham', XT, 'function kiemHan(p, now) {\n', 'function kiemHan(p, now) {\n  return;\n'],
+    ['han-goi', XT, '    kiemHan(p, now);\n', ''],
+    ['han-exp', XT, ' || p.exp <= now', ''],
+    ['han-nbf', XT, "  if (typeof p.nbf === 'number' && p.nbf > now + 60) throw new LoiXacThuc(401, 'chua_hieu_luc');\n", ''],
+    ['email-403', XT, "throw new LoiXacThuc(403, 'email_la')", "throw new LoiXacThuc(401, 'email_la')"],
+    ['het-luc', XT, 'het_luc: new Date(p.exp * 1000).toISOString()', 'het_luc: new Date(Date.now() + 600000).toISOString()'],
+    ['jwks-loi-dung-khoa-cu', XT, "catch { throw new LoiXacThuc(503, 'khong_lay_duoc_khoa'); }", 'catch { /* dùng khoá cũ */ }'],
+    ['jwks-bo-han-khoa', XT, ' || bayGio() - napLuc >= hanKhoa', ''],
+    ['jwks-loi-trong-60s', XT, 'return loiCuoi ? Promise.reject(loiCuoi) : Promise.resolve();', 'return Promise.resolve();'],
+    // kiemYeuCau ở bộ định tuyến chung (hàm + chỗ gọi), lỗi lạ ⇒ 401, mã vé đi nguyên (401/403/503)
+    ['kiem-yeu-cau-ham', XT, 'export async function kiemYeuCau(kiem, req) {\n', "export async function kiemYeuCau(kiem, req) {\n  return { email: 'x', het_luc: 'x' };\n"],
+    ['kiem-yeu-cau-goi', API, 'try { ve = await kiemYeuCau(ctx.kiem, req); }', "try { ve = { email: 'x', het_luc: 'x' }; }"],
+    ['kiem-yeu-cau-loi-la', XT, "catch (e) { throw e instanceof LoiXacThuc ? e : new LoiXacThuc(401, 'jwt_sai_dang'); }", 'catch (e) { throw e; }'],
+    ['ma-ve-chung', API, 'return traJson(res, e.ma, THAN_VE[e.ma]); }', 'return traJson(res, 401, THAN_VE[401]); }'],
+    // CSRF từng điều kiện + phạm vi phương thức + thứ tự cổng
+    ['csrf-x-webos', API, "  if (h['x-webos'] !== '1') return false;\n", ''],
+    ['csrf-content-type', API, "  if (String(h['content-type'] ?? '').split(';')[0].trim().toLowerCase() !== 'application/json') return false;\n", ''],
+    ['csrf-sec-fetch-site', API, "return h['sec-fetch-site'] === undefined || h['sec-fetch-site'] === 'same-origin';", 'return true;'],
+    ['csrf-vang-sfs-chan', API, "return h['sec-fetch-site'] === undefined || h['sec-fetch-site'] === 'same-origin';", "return h['sec-fetch-site'] === 'same-origin';"],
+    ['csrf-chi-post', API, "if (req.method !== 'GET' && req.method !== 'HEAD') {", "if (req.method === 'POST') {"],
+    ['thu-tu-csrf-truoc-ve', API, '  let ve;\n', "  if (req.method === 'POST' && !kiemCsrf(req)) return traJson(res, 403, { loi: 'csrf' });\n  let ve;\n"],
+    ['thu-tu-than-truoc-csrf', API, "    if (!kiemCsrf(req)) return traJson(res, 403, { loi: 'csrf' });\n    than = await docThan(req, TRAN_THAN);\n", "    than = await docThan(req, TRAN_THAN);\n    if (!kiemCsrf(req)) return traJson(res, 403, { loi: 'csrf' });\n"],
+    // Trần thân 64 KiB (hàm + chỗ gọi)
+    ['tran-than-ham', API, 'export const TRAN_THAN = 64 * 1024;', 'export const TRAN_THAN = 65 * 1024;'],
+    ['tran-than-goi', API, "    if (than === null) return traJson(res, 413, { loi: 'than_qua_lon' });\n", ''],
+    // Ánh xạ lỗi route: LoiGoi ⇒ e.ma chung; lỗi khác ⇒ 500 không lộ thông điệp
+    ['loi-goi-ma', API, '? traJson(res, e.ma, { loi: e.loi', '? traJson(res, 400, { loi: e.loi'],
+    ['loi-khac-lo', API, "traJson(res, 500, { loi: 'loi_may_chu' }); }", 'traJson(res, 500, { loi: String(e.message) }); }'],
+    // Socket: không gỡ đường không phải socket cũ của uid mình (hàm + chỗ gọi), mode 0660, cong chỉ 127.0.0.1
+    ['socket-cu-loai', MC, 'if (!st.isSocket() || st.uid', 'if (st.uid'],
+    ['socket-cu-uid', MC, ' || st.uid !== process.getuid()) throw', ') throw'],
+    ['socket-cu-goi', MC, '  goSocketCu(duong);\n', '  fs.rmSync(duong, { force: true });\n'],
+    ['mode-0660', MC, 'fs.chmodSync(duong, 0o660);', 'fs.chmodSync(duong, 0o666);'],
+    ['mode-0660-bo', MC, '  fs.chmodSync(duong, 0o660);\n', ''],
+    ['cong-127', MC, "return lang(cong, '127.0.0.1');", "return lang(cong, '0.0.0.0');"],
+    ['kho-0600', MC, "fs.closeSync(fs.openSync(tepKho, 'a', 0o600));", ''],
+    // Cấu hình khoá đóng (hàm từng luật + chỗ gọi docCauHinh)
+    ['cau-hinh-goi', MC, 'const ch = docCauHinh(duongCauHinh);', "const ch = { ngheSocket: null, ...JSON.parse(fs.readFileSync(duongCauHinh, 'utf8')) };"],
+    ['cong-va-socket', CH, "  if (Object.hasOwn(ch, 'cong') === Object.hasOwn(ch, 'ngheSocket')) throw new Error('cấu hình: cần đúng một trong cong (chỉ dev) và ngheSocket');\n", ''],
+    ['khoa-la', CH, "  for (const k of Object.keys(ch)) if (!BAT_BUOC.includes(k) && !TUY_CHON.includes(k)) throw new Error('cấu hình: khoá lạ ' + k);\n", ''],
+    ['thieu-khoa', CH, "  for (const k of BAT_BUOC) if (!Object.hasOwn(ch, k)) throw new Error('cấu hình: thiếu ' + k);\n", ''],
+    ['kieu-emails', CH, "throw new Error('cấu hình: emails sai');", '0;'],
+    ['kieu-cos-ghi', CH, "throw new Error('cấu hình: cosGhi phải là true/false');", '0;'],
+    ['kieu-cong', CH, "throw new Error('cấu hình: cong sai');", '0;'],
+    ['kieu-uid-cho', CH, "throw new Error('cấu hình: uidCho phải là số nguyên ≥ 0');", '0;'],
+    ['kieu-duong', CH, "throw new Error('cấu hình: ' + k + ' phải là đường tuyệt đối');", '0;'],
+    ['kernel-trung-web', CH, "throw new Error('cấu hình: ngheKernel trùng ngheSocket');", '0;'],
   ],
 };
 
