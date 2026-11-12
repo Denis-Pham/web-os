@@ -196,3 +196,66 @@ test('CLI: SIGTERM / SIGINT ⇒ dong() (gỡ socket, đóng kho sạch: hết -w
     } finally { if (con.exitCode === null && con.signalCode === null) con.kill('SIGKILL'); }
   }
 });
+
+// ---- A6 vòng sửa 1 ----
+const doc = (d, n = 'so-dem.json') => JSON.parse(fs.readFileSync(path.join(d, n), 'utf8'));
+const themViec = (kho, khoa) => { const db = moKho(path.join(kho, 'kho.sqlite')); KHO.push(db); apGoi(db, { khoa_lap: khoa, chu_the: 'anh', nguon: { loai: 'web' }, ops: [{ loai: 'them', bang: 'viec', truong: { tieu_de: 'V ' + khoa } }] }, '2026-11-12T01:00:00.000Z'); db.close(); };
+
+test('nối ghiSoDem: có thuMucXuat ⇒ so-dem.json ngay lúc khởi động + mỗi lượt bản giờ (viec_mo tăng); không thuMucXuat ⇒ không tệp', async () => {
+  const xuat = tamMoi(), f = mt.cauHinh({ thuMucXuat: xuat }), kho = JSON.parse(fs.readFileSync(f, 'utf8')).thuMucKho;
+  const t0 = Date.parse('2026-11-11T18:30:00Z'), dh = dongHoGia(t0);
+  const m = await khoiDong(f, { layJwks, ghiLog: () => {}, dongHo: dh });
+  try {
+    assert.equal(doc(xuat).viec_mo, 0, 'ghi lúc khởi động');
+    assert.equal(doc(xuat).gio_dung, new Date(t0).toISOString());
+    themViec(kho, 'so-dem-gio-1');
+    dh.toi(t0 + 3600e3);
+    assert.equal(doc(xuat).viec_mo, 1, 'bản giờ ghi lại số đếm');
+    assert.equal(doc(xuat).gio_dung, '2026-11-11T19:00:00.000Z');
+    themViec(kho, 'so-dem-gio-2');
+    dh.toi(t0 + 2 * 3600e3);
+    assert.equal(doc(xuat).viec_mo, 2);
+  } finally { await m.dong(); }
+});
+
+test('nối ghiSoDem: không có thuMucXuat ⇒ không tạo tệp nào (đối chứng)', async () => {
+  const f = mt.cauHinh(), dh = dongHoGia(Date.parse('2026-11-11T18:30:00Z')), goiLog = [];
+  const m = await khoiDong(f, { layJwks, ghiLog: s => goiLog.push(s), dongHo: dh });
+  try { dh.toi(Date.parse('2026-11-11T19:30:00Z')); assert.ok(!goiLog.some(s => /so đếm/.test(s))); assert.deepEqual(fs.readdirSync(mt.tam, { recursive: true }).filter(n => /so-dem/.test(n)), []); } finally { await m.dong(); }
+});
+
+test('moiGio: lỗi ⇒ log một dòng không mang dữ liệu, bộ hẹn chạy tiếp; lỗi sao lưu không chặn moiGio', () => {
+  const { dir, db } = khoTep(), log = [], t0 = Date.parse('2026-11-11T18:30:00Z'), dh = dongHoGia(t0);
+  let n = 0;
+  const sl = path.join(dir, 'la-tep'); fs.writeFileSync(sl, 'x');   // sao lưu lỗi
+  const h = henSaoLuu(db, { thuMucSaoLuu: sl }, { dongHo: dh, ghiLog: s => log.push(s), moiGio: () => { n++; throw new Error('BI-MAT-123'); } });
+  dh.toi(t0 + 2 * 3600e3);
+  assert.equal(n, 2, 'moiGio chạy dù sao lưu lỗi, và sau lỗi của chính nó vẫn chạy lượt kế');
+  assert.ok(log.some(s => /LỖI sao lưu gio/.test(s)) && log.some(s => /LỖI ghi so đếm/.test(s)));
+  assert.ok(!log.join('\n').includes('BI-MAT-123'));
+  h.dung();
+});
+
+test('timer bắn sớm 1 ms (đồng hồ giả) qua 2 giờ và 03:00 ⇒ vẫn đúng 2 bản giờ + 1 bản ngày, tên phút tròn', () => {
+  const { dir, db } = khoTep(), sl = path.join(dir, 'sl'), t0 = Date.parse('2026-11-11T18:30:00Z');
+  let gio = t0, so = 0; const hen = new Map();
+  const dh = { now: () => gio, setTimeout: (fn, ms) => { hen.set(++so, { fn, luc: gio + ms - (ms > 1 ? 1 : 0) }); return so; }, clearTimeout: id => hen.delete(id) };
+  const log = [], h = henSaoLuu(db, { thuMucSaoLuu: sl }, { dongHo: dh, ghiLog: s => log.push(s) });
+  const dich = t0 + 2 * 3600e3;
+  for (let k; (k = [...hen].filter(([, x]) => x.luc <= dich).sort((a, b) => a[1].luc - b[1].luc)[0]);) { hen.delete(k[0]); gio = k[1].luc; k[1].fn(); }
+  assert.deepEqual(banSao(sl), ['kho-gio-20261112-0200.sqlite', 'kho-gio-20261112-0300.sqlite', 'kho-ngay-20261112-0300.sqlite']);
+  assert.equal(log.filter(x => /xong/.test(x)).length, 3, 'mỗi mốc đúng một lần (không bắn lại 1 ms sau)');
+  h.dung();
+});
+
+test('dong() gọi hai lần liền (SIGTERM rồi SIGINT) ⇒ cả hai resolve, không ném', async () => {
+  const m = await khoiDong(mt.cauHinh(), { layJwks, ghiLog: () => {} });   // không qua mt.may: after() sẽ không dong() lần ba
+  const r = await Promise.allSettled([m.dong(), m.dong()]);
+  assert.deepEqual(r.map(x => x.status), ['fulfilled', 'fulfilled']);
+});
+
+test('nối ghiSoDem: thư mục xuất không có ⇒ máy chủ vẫn khởi động, log một dòng LỖI không mang đường/dữ liệu', async () => {
+  const log = [], f = mt.cauHinh({ thuMucXuat: path.join(mt.tam, 'khong-co-thu-muc') });
+  const m = await khoiDong(f, { layJwks, ghiLog: s => log.push(s), dongHo: dongHoGia(Date.parse('2026-11-11T18:30:00Z')) });
+  try { assert.deepEqual(log.filter(s => /so đếm/.test(s)), ['LỖI ghi so đếm']); } finally { await m.dong(); }
+});

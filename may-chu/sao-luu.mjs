@@ -77,14 +77,18 @@ const DONG_HO = { now: () => Date.now(), setTimeout: (f, ms) => setTimeout(f, ms
 const sach = e => String(e?.message ?? e).slice(0, 200).replace(/[\x00-\x1f\x7f]/g, ' ');
 
 // Bản giờ mỗi giờ tròn + bản ngày 03:00 giờ VN. Mỗi lần chạy tính mốc kế từ dongHo.now() rồi setTimeout (không setInterval dài).
-export function henSaoLuu(db, ch, { dongHo = DONG_HO, ghiLog = s => process.stderr.write(s + '\n') } = {}) {
+// moiGio(t): việc phụ sau mỗi bản giờ (A6: ghi so-dem.json); lỗi của nó và lỗi sao lưu không chặn nhau.
+export function henSaoLuu(db, ch, { dongHo = DONG_HO, ghiLog = s => process.stderr.write(s + '\n'), moiGio } = {}) {
   const hen = {};
-  const dat = (loai, chuKy, lech) => {
+  const dat = (loai, chuKy, lech, tu = dongHo.now()) => {
+    const moc = tu + toiMoc(tu, chuKy, lech);
     hen[loai] = dongHo.setTimeout(() => {
-      try { ghiLog(`sao lưu ${loai} xong ${path.basename(saoLuu(db, ch.thuMucSaoLuu, dongHo.now(), loai).tep)}`); }
+      const t = Math.max(dongHo.now(), moc);   // timer bắn sớm vài ms: vẫn dùng mốc tròn cho tên tệp VÀ mốc kế (không thêm bản 1 ms sau)
+      try { ghiLog(`sao lưu ${loai} xong ${path.basename(saoLuu(db, ch.thuMucSaoLuu, t, loai).tep)}`); }
       catch (e) { ghiLog(`LỖI sao lưu ${loai}: ${sach(e)}`); }   // lỗi không được ném ra bộ hẹn (sập tiến trình); lần kế vẫn hẹn
-      dat(loai, chuKy, lech);
-    }, toiMoc(dongHo.now(), chuKy, lech));
+      if (loai === 'gio' && moiGio) { try { moiGio(t); } catch { ghiLog('LỖI ghi so đếm'); } }
+      dat(loai, chuKy, lech, t);
+    }, moc - dongHo.now());
     hen[loai]?.unref?.();
   };
   dat('gio', GIO, 0);

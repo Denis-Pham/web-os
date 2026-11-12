@@ -10,6 +10,7 @@ import { docCauHinh } from './cau-hinh.mjs';
 import { taoKiemJwt } from './xac-thuc.mjs';
 import { moKho } from './kho.mjs';
 import { henSaoLuu } from './sao-luu.mjs';
+import { ghiSoDem } from './xuat.mjs';
 import { xuLy, tra } from './api.mjs';
 
 const sach = s => String(s).slice(0, 200).replace(/[^\x21-\x7e]/g, '?');
@@ -54,7 +55,11 @@ export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.st
   const tepKho = path.join(ch.thuMucKho, 'kho.sqlite');
   fs.closeSync(fs.openSync(tepKho, 'a', 0o600));   // kho 0600 ngay từ lúc tạo (mục 1); SQLite tạo -wal/-shm theo mode tệp kho
   const db = moKho(tepKho);
-  const hen = henSaoLuu(db, ch, { dongHo, ghiLog });   // bản giờ + bản ngày 03:00 (A6)
+  // so-dem.json cho dung-trang.py: ghi lúc khởi động + sau mỗi bản giờ; lỗi chỉ ghi log (tệp theo dõi, không phải cổng an ninh).
+  const bayGio = () => dongHo ? dongHo.now() : Date.now();
+  const moiGio = ch.thuMucXuat ? t => ghiSoDem(db, ch.thuMucXuat, t) : undefined;
+  if (moiGio) { try { moiGio(bayGio()); } catch { ghiLog('LỖI ghi so đếm'); } }
+  const hen = henSaoLuu(db, ch, { dongHo, ghiLog, moiGio });   // bản giờ + bản ngày 03:00 (A6)
   const ctx = { ch, kiem, db };
   const server = http.createServer((req, res) => {
     const t0 = performance.now(), p = (req.url || '').split('?')[0];
@@ -63,11 +68,12 @@ export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.st
     xuLy(ctx, req, res).catch(() => { if (!res.headersSent) tra(res, 500); else res.destroy(); });   // không in lỗi: có thể mang dữ liệu
   });
   const kernel = kernelTam();
-  const dong = async () => {
+  let p;   // dong() nhiều lần (SIGTERM rồi SIGINT) dùng chung một lời hứa: không đóng kho hai lần
+  const dong = () => (p ??= (async () => {
     hen.dung();
     for (const s of [server, kernel]) if (s.listening) await new Promise(r => { s.close(r); s.closeAllConnections(); });
     db.close();
-  };
+  })());
   try { await nghe(server, ch.ngheSocket, ch.cong); await nghe(kernel, ch.ngheKernel); }
   catch (e) { await dong(); throw e; }
   const dc = server.address();

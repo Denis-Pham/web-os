@@ -205,7 +205,7 @@ const NHOM = {
     ['truong-la-goi', XU, '  if (!hop(luocDo, du_lieu)) return hong();\n', ''],
     ['so-dau-ham', SL, 'export function cungDau(a, b) {\n', 'export function cungDau(a, b) {\n  return true;\n'],
     ['so-dau-goi', SL, "    if (!cungDau(kiemBan(tam), dau)) throw new Error('sao lưu: bản sao lệch bản sống');\n", '    kiemBan(tam);\n'],
-    ['hen-goi', MC, '  const hen = henSaoLuu(db, ch, { dongHo, ghiLog });', '  const hen = { dung() {} };'],
+    ['hen-goi', MC, '  const hen = henSaoLuu(db, ch, { dongHo, ghiLog, moiGio });', '  const hen = { dung() {} };'],   // vòng sửa 1: thêm moiGio vào chuỗi cũ, giữ ý
     ['dung-goi', MC, '    hen.dung();\n', ''],
     // Tệp xuất: trần mặc định, lược đồ đóng từng luật
     ['tran-mac-dinh', XU, 'tranByte = 2 * 1024 * 1024,', 'tranByte = 2 * 1024 * 1024 + 1,'],
@@ -265,10 +265,19 @@ const NHOM = {
     // Bộ hẹn: chu kỳ giờ, 03:00 giờ VN, hẹn lại theo giờ mới, dung(), lỗi không thoát ra
     ['hen-chu-ky-gio', SL, "dat('gio', GIO, 0);", "dat('gio', 2 * GIO, 0);"],
     ['hen-ngay-03h-vn', SL, "dat('ngay', NGAY, 3 * GIO - VN);", "dat('ngay', NGAY, 3 * GIO);"],
-    ['hen-lai', SL, '      dat(loai, chuKy, lech);\n', ''],
-    ['hen-tu-gio-moi', SL, 'toiMoc(dongHo.now(), chuKy, lech)', 'chuKy'],
+    ['hen-lai', SL, '      dat(loai, chuKy, lech, t);\n', ''],
+    ['hen-tu-gio-moi', SL, 'tu + toiMoc(tu, chuKy, lech)', 'tu + chuKy'],   // vòng sửa 1: chuỗi cũ đổi theo mã mới, giữ ý
     ['dung-ham', SL, 'return { dung() { for (const t of Object.values(hen)) dongHo.clearTimeout(t); } };', 'return { dung() {} };'],
     ['hen-bat-loi', SL, '      catch (e) { ghiLog(`LỖI sao lưu ${loai}: ${sach(e)}`); }', '      catch (e) { throw e; }'],
+    // Vòng sửa 1: nối ghiSoDem, timer bắn sớm, dong() một lần
+    ['so-dem-khoi-dong', MC, '  if (moiGio) { try { moiGio(bayGio()); }', '  if (false) { try { moiGio(bayGio()); }'],
+    ['so-dem-moi-gio', SL, "if (loai === 'gio' && moiGio) {", 'if (false) {'],
+    ['so-dem-moi-gio-chan-nhau', SL, "if (loai === 'gio' && moiGio) { try { moiGio(t); } catch { ghiLog('LỖI ghi so đếm'); } }", "if (loai === 'gio' && moiGio) { moiGio(t); }"],
+    ['so-dem-khoi-dong-loi', MC, "moiGio(bayGio()); } catch { ghiLog('LỖI ghi so đếm'); }", 'moiGio(bayGio()); } catch (e) { throw e; }'],
+    ['so-dem-co-thu-muc-xuat', MC, 'ch.thuMucXuat ? t => ghiSoDem(db, ch.thuMucXuat, t) : undefined', 't => ghiSoDem(db, ch.thuMucXuat, t)'],
+    ['hen-som-max', SL, 'Math.max(dongHo.now(), moc)', 'dongHo.now()'],
+    ['hen-som-moc-ke', SL, 'dat(loai, chuKy, lech, t);', 'dat(loai, chuKy, lech);'],
+    ['dong-mot-lan', MC, 'const dong = () => (p ??= (async () => {', 'const dong = () => ((async () => {'],
     // Tắt êm khi nhận tín hiệu; thuMucSaoLuu bắt buộc
     ['tin-sigterm', MC, "['SIGTERM', 'SIGINT']", "['SIGINT']"],
     ['tin-sigint', MC, "['SIGTERM', 'SIGINT']", "['SIGTERM']"],
