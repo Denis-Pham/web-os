@@ -1,5 +1,5 @@
 // Gói ghi + Hoàn tác (thiết kế v0.2 mục 2, 4, 5.4, 5.5). MỌI lệnh ghi vào kho đi qua apGoi: route web, kernel.sock (A4), Áp dụng đề xuất (A3).
-// Thứ tự cổng: khoa_lap + nguồn + lược đồ (400) → quyền (403) → trong MỘT giao dịch: khoá lặp (R9), phien_ban (409), doi_tuong tien_do (R6, 403).
+// Thứ tự cổng: khoa_lap + chủ thể + nguồn + lược đồ (400) → quyền (403) → trong MỘT giao dịch: khoá lặp (R9), phien_ban (409), doi_tuong tien_do (R6, 403).
 import { randomBytes, randomUUID } from 'node:crypto';
 import { trongGiaoDich } from './kho.mjs';
 
@@ -55,14 +55,15 @@ const KHOA_OP = {
   mo_lai: ['loai', 'bang', 'id', 'phien_ban'],
 };
 // Danh sách đóng; trả thao tác đã chuẩn hoá (khoá cố định, trường xếp theo tên) để so R9 bằng JSON.
+// Khoá tra bảng (loai, bang, chu_the, nguon.loai) phải là chuỗi TRƯỚC khi tra: Object.hasOwn ép ['cai_tien'] thành 'cai_tien' rồi lách mọi phép so ===.
 export function kiemOps(ops) {
   if (!Array.isArray(ops) || ops.length < 1 || ops.length > 40) throw saiLuocDo({ ly_do: 'so_thao_tac' });
   return ops.map((op, i) => {
     const hong = (ly_do, truong) => saiLuocDo({ thao_tac: i, ly_do, ...(truong && { truong }) });
-    if (!laObj(op) || !Object.hasOwn(KHOA_OP, op.loai)) throw hong('loai');
+    if (!laObj(op) || typeof op.loai !== 'string' || !Object.hasOwn(KHOA_OP, op.loai)) throw hong('loai');
     const khoa = KHOA_OP[op.loai];
     if (Object.keys(op).some(k => !khoa.includes(k))) throw hong('khoa_la');
-    if (!Object.hasOwn(LUOC, op.bang)) throw hong('bang');
+    if (typeof op.bang !== 'string' || !Object.hasOwn(LUOC, op.bang)) throw hong('bang');
     if ((op.loai === 'xong' || op.loai === 'mo_lai') && op.bang !== 'viec') throw hong('chi_viec');   // R5: chỉ viec có xong_luc
     const ra = { loai: op.loai, bang: op.bang };
     if (op.loai !== 'them') {
@@ -97,12 +98,13 @@ const QUYEN = {
   anh: { web: QUYEN_ANH, de_xuat: QUYEN_ANH },
   neo: { tin_anh: { viec: ['them', 'sua', 'xong', 'mo_lai'], lich: ['them', 'sua', 'xong', 'mo_lai'], cai_tien: ['them'] } },   // KHÔNG xoa: xoá qua đề xuất (A4)
 };
-const quyenCua = (chu_the, loai) => (Object.hasOwn(QUYEN, chu_the) && Object.hasOwn(QUYEN[chu_the], loai) ? QUYEN[chu_the][loai] : null);
+const CHU_THE = ['anh', 'neo'];
+const quyenCua = (chu_the, loai) => (typeof chu_the === 'string' && typeof loai === 'string' && Object.hasOwn(QUYEN, chu_the) && Object.hasOwn(QUYEN[chu_the], loai) ? QUYEN[chu_the][loai] : null);
 
 export function kiemQuyen(chu_the, nguon, ops) {
   const o = quyenCua(chu_the, nguon?.loai) ?? {};
   for (const { bang, loai, truong } of ops) {
-    if (!Object.hasOwn(o, bang) || !o[bang].includes(loai)) throw new LoiGoi(403, 'quyen', { bang, loai });
+    if (typeof bang !== 'string' || !Object.hasOwn(o, bang) || !o[bang].includes(loai)) throw new LoiGoi(403, 'quyen', { bang, loai });
     if (bang === 'cai_tien' && loai === 'sua' && Object.keys(truong).some(k => k !== 'trang_thai')) throw new LoiGoi(403, 'quyen', { bang, loai });   // anh chỉ đổi trạng thái
   }
 }
@@ -149,6 +151,7 @@ const KHOA_LAP = /^[A-Za-z0-9_-]{8,100}$/;
 
 export function apGoi(db, { khoa_lap, chu_the, nguon, ops }, bayGio) {
   if (typeof khoa_lap !== 'string' || !KHOA_LAP.test(khoa_lap)) throw saiLuocDo({ ly_do: 'khoa_lap' });
+  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });
   const nguonJson = kiemNguon(nguon);
   const chuan = kiemOps(ops);
   kiemQuyen(chu_the, nguon, chuan);
@@ -171,6 +174,7 @@ export function apGoi(db, { khoa_lap, chu_the, nguon, ops }, bayGio) {
 
 // Hoàn tác = gói nghịch NỘI BỘ (không qua kiemOps) dựng từ nhat_ky.truoc của gói gốc; chỉ chạy khi mọi dòng còn đúng phien_ban trong ket_qua.
 export function hoanTac(db, { ma_hoan, chu_the, nguon }, bayGio) {
+  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });
   const nguonJson = kiemNguon(nguon);
   return trongGiaoDich(db, () => {
     const goc = typeof ma_hoan === 'string' ? db.prepare('SELECT * FROM goi_ghi WHERE ma_hoan = ?').get(ma_hoan) : undefined;

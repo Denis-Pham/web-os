@@ -87,7 +87,7 @@ const NHOM = {
     ['ops-tran-40', GOI, 'ops.length > 40', 'ops.length > 41'],
     ['ops-loai', GOI, ' || !Object.hasOwn(KHOA_OP, op.loai)', ''],
     ['ops-khoa-la', GOI, "    if (Object.keys(op).some(k => !khoa.includes(k))) throw hong('khoa_la');\n", ''],
-    ['ops-bang', GOI, "    if (!Object.hasOwn(LUOC, op.bang)) throw hong('bang');\n", ''],
+    ['ops-bang', GOI, "    if (typeof op.bang !== 'string' || !Object.hasOwn(LUOC, op.bang)) throw hong('bang');\n", ''],
     ['r5-chi-viec', GOI, " && op.bang !== 'viec') throw hong('chi_viec');", ") throw hong('chi_viec');"],
     ['r5-bo', GOI, "    if ((op.loai === 'xong' || op.loai === 'mo_lai') && op.bang !== 'viec') throw hong('chi_viec');", ''],
     ['ops-id', GOI, "      if (typeof op.id !== 'string' || op.id.length < 1 || op.id.length > 100) throw hong('id');\n", ''],
@@ -119,6 +119,15 @@ const NHOM = {
     ['ngay-co-that', GOI, ' && ngay <= cuoiThang', ''],
     ['ngay-gio', GOI, ' && gio <= 23', ''],
     ['ngay-phut', GOI, ' && phut <= 59', ''],
+    ['ngay-goi', GOI, '  if (luat.ngay) return laNgay(v);', '  if (luat.ngay) return true;'],   // bỏ hẳn dòng ⇒ luat.chon undefined ⇒ TypeError: đỏ vì lý do khác
+    // Khoá tra bảng phải là chuỗi trước khi tra (soát A1 I1): Object.hasOwn ép ['cai_tien'] thành 'cai_tien'
+    ['kieu-ops-loai', GOI, "typeof op.loai !== 'string' || ", ''],
+    ['kieu-ops-bang', GOI, "typeof op.bang !== 'string' || ", ''],
+    ['kieu-quyen-bang', GOI, "typeof bang !== 'string' || ", ''],
+    ['kieu-quyen-chu-the', GOI, "typeof chu_the === 'string' && ", ''],
+    ['kieu-quyen-nguon', GOI, "typeof loai === 'string' && ", ''],
+    ['chu-the-ap-goi', GOI, "  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  const nguonJson = kiemNguon(nguon);\n  const chuan", '  const nguonJson = kiemNguon(nguon);\n  const chuan'],
+    ['chu-the-hoan-tac', GOI, "  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  const nguonJson = kiemNguon(nguon);\n  return", '  const nguonJson = kiemNguon(nguon);\n  return'],
   ],
 };
 
@@ -138,19 +147,23 @@ function chep(dich) {
 }
 
 // rc 0 ⇒ SỐNG · rc 1 kèm ít nhất một test hỏng ⇒ DIỆT · hết giờ / chết vì tín hiệu / rc khác ⇒ LỖI ĐO.
-function chayTest(thuMuc) {
+// Tệp test không nạp được (ca «not ok» mang tên tệp *.test.mjs, hoặc số test chạy ít hơn bản gốc) ⇒ LỖI ĐO: đỏ vì import hỏng, không phải test bắt.
+function chayTest(thuMuc, soGoc = 0) {
   const r = spawnSync(NODE, ['--test', '--test-reporter=tap', 'test-may-chu/*.test.mjs'], { cwd: thuMuc, encoding: 'utf8', timeout: HAN_MS, killSignal: 'SIGKILL' });
   if (r.error || r.signal) return { kq: 'LỖI ĐO', ghi: r.error?.code ?? r.signal };
-  if (r.status === 0) return { kq: 'SỐNG', ghi: '' };
+  const tong = Number(/^# tests (\d+)$/m.exec(r.stdout)?.[1] ?? 0);
+  if (r.status === 0) return { kq: 'SỐNG', ghi: '', tong };
   const hong = Number(/^# fail (\d+)$/m.exec(r.stdout)?.[1] ?? 0), dau = /^\s*not ok \d+ - (.+)$/m.exec(r.stdout)?.[1] ?? '';
+  const nap = /^\s*not ok \d+ - (.+\.test\.mjs)$/m.exec(r.stdout)?.[1];
+  if (nap || tong < soGoc) return { kq: 'LỖI ĐO', ghi: `nạp hỏng: ${nap ?? '-'} · chạy ${tong}/${soGoc} test` };
   return r.status === 1 && hong > 0 ? { kq: 'DIỆT', ghi: dau } : { kq: 'LỖI ĐO', ghi: `rc ${r.status}, fail ${hong}` };
 }
 
 function chayHet(tam) {
   chep(tam);
   const goc = chayTest(tam);
-  if (goc.kq !== 'SỐNG') { console.log(`GỐC ĐỎ · ${goc.kq} · ${goc.ghi}`); return 1; }
-  console.log('gốc XANH');
+  if (goc.kq !== 'SỐNG' || !(goc.tong > 0)) { console.log(`GỐC ĐỎ · ${goc.kq} · ${goc.ghi} · ${goc.tong ?? 0} test`); return 1; }
+  console.log(`gốc XANH · ${goc.tong} test`);
   let xau = 0;
   for (const [ten, tep, cu, moi] of DS) {
     const f = path.join(tam, tep), nguyen = fs.readFileSync(f, 'utf8'), n = nguyen.split(cu).length - 1;
@@ -159,7 +172,7 @@ function chayHet(tam) {
     else {
       fs.writeFileSync(f, nguyen.replace(cu, () => moi));
       try {
-        kq = spawnSync(NODE, ['--check', f]).status !== 0 ? { kq: 'LỖI ĐO', ghi: 'lỗi cú pháp sau đột biến' } : chayTest(tam);
+        kq = spawnSync(NODE, ['--check', f]).status !== 0 ? { kq: 'LỖI ĐO', ghi: 'lỗi cú pháp sau đột biến' } : chayTest(tam, goc.tong);
       } finally { fs.writeFileSync(f, nguyen); }
     }
     if (kq.kq !== 'DIỆT') xau++;

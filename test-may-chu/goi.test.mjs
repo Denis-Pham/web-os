@@ -123,7 +123,10 @@ const X = (loai, bang, o = {}) => [{ loai, bang, id: 'mot-dong', phien_ban: 1, .
 const CA_400 = [
   ['0 thao tác', []], ['41 thao tác', Array.from({ length: 41 }, () => them('viec', VIEC))], ['ops không phải mảng', { 0: them('viec', VIEC), length: 1 }],
   ['thao tác null', [null]], ['loai lạ', X('xoa_cung', 'viec')], ['loai toString', [{ loai: 'toString', bang: 'viec', truong: VIEC }]],
+  ['loai mảng sua', [{ loai: ['sua'], bang: 'viec', id: 'mot-dong', phien_ban: 1, truong: { tieu_de: 'a' } }]], ['loai mảng them', [{ loai: ['them'], bang: 'viec', truong: VIEC }]],
   ['bang lạ', [them('nhat_ky', VIEC)]], ['bang y_tuong chưa mở', [them('y_tuong', { tieu_de: 'a' })]], ['bang toString', [them('toString', VIEC)]],
+  // Khoá không phải chuỗi: Object.hasOwn ép ['cai_tien'] thành 'cai_tien' ⇒ lách «cai_tien chỉ trang_thai» và R6 (soát A1 I1).
+  ['bang mảng cai_tien', S(['cai_tien'], { noi_dung: 'lậu' })], ['bang mảng tien_do', [them(['tien_do'], { doi_tuong: 'viec:khong-co' })]],
   ['khoá lạ trong thao tác', [{ ...them('viec', VIEC), nguoi_sua: 'anh' }]], ['them kèm id', [{ ...them('viec', VIEC), id: 'x' }]],
   ['sua thiếu phien_ban', [{ loai: 'sua', bang: 'viec', id: 'x', truong: { tieu_de: 'a' } }]], ['xoa thiếu id', [{ loai: 'xoa', bang: 'viec', phien_ban: 1 }]],
   ['xoa kèm truong', X('xoa', 'viec', { truong: {} })], ['id rỗng', X('xoa', 'viec', { id: '' })], ['id 101 ký tự', X('xoa', 'viec', { id: 'a'.repeat(101) })],
@@ -156,6 +159,8 @@ const CA_400_GOI = [
   ['khoa_lap số', { khoa_lap: 123456789 }], ['khoa_lap thiếu', { khoa_lap: undefined }],
   ['nguon null', { nguon: null }], ['nguon.loai lạ', { nguon: { loai: 'discord' } }], ['nguon khoá lạ', { nguon: { loai: 'web', ve: 'x' } }],
   ['nguon.kenh 101', { nguon: { loai: 'web', kenh: 'a'.repeat(101) } }], ['nguon.tin_id số', { nguon: { loai: 'web', tin_id: 5 } }], ['nguon.kenh mảng', { nguon: { loai: 'web', kenh: ['a'] } }],
+  // chu_the ∈ {anh, neo} là lược đồ (400): ['neo'] qua được Object.hasOwn(QUYEN) nhưng lách mọi phép === 'neo'.
+  ['chu_the mảng', { chu_the: ['neo'], nguon: TIN }], ['chu_the lạ', { chu_the: 'khach' }], ['chu_the toString', { chu_the: 'toString' }], ['chu_the thiếu', { chu_the: undefined }],
 ];
 
 test('5 lược đồ sai ⇒ 400 luoc_do trước khi chạm SQLite, kho không đổi; đối chứng biên được ghi', () => {
@@ -265,9 +270,10 @@ test('8 hoanTac hai lần ⇒ 409 da_hoan; mã lạ ⇒ 404; neo chỉ hoàn gó
   const ga = ghi(db, [them('viec', { tieu_de: 'của anh' })]);
   hong(db, () => hoan(db, ga.ma_hoan, NEO), 403, 'quyen');
   hong(db, () => hoan(db, ga.ma_hoan, { nguon: { loai: 'web', ve: 'x' } }), 400, 'luoc_do');
+  hong(db, () => hoan(db, ga.ma_hoan, { chu_the: ['neo'], nguon: TIN }), 400, 'luoc_do');   // mảng lách `=== 'neo'` ⇒ neo hoàn gói anh
   const gn = ghi(db, [them('viec', { tieu_de: 'của neo' })], NEO);
   hong(db, () => hoan(db, gn.ma_hoan, { chu_the: 'neo', nguon: TU }), 403, 'quyen');
-  hong(db, () => hoan(db, gn.ma_hoan, { chu_the: 'khach', nguon: WEB }), 403, 'quyen');
+  hong(db, () => hoan(db, gn.ma_hoan, { chu_the: 'khach', nguon: WEB }), 400, 'luoc_do');   // chủ thể ngoài {anh, neo} là lược đồ
   hong(db, () => hoan(db, gn.ma_hoan, { chu_the: 'anh', nguon: TU }), 403, 'quyen');
   duoc(db, () => hoan(db, gn.ma_hoan, NEO));   // đối chứng: neo hoàn gói của neo
   assert.equal(db.prepare('SELECT chu_the FROM goi_ghi WHERE hoan_cua = ?').get(gn.goi_id).chu_the, 'neo');
@@ -308,7 +314,6 @@ test('10 kiemQuyen: mỗi ô «không» và thao tác ngoài ô ⇒ 403, kho kh�
     ['tu_chay sua viec', { chu_the: 'neo', nguon: TU }, () => sua('viec', cu(db, 'viec', v.id), { tieu_de: 'x' })],
     ['anh · tin_anh', { nguon: TIN }, () => them('viec', VIEC)], ['anh · tu_chay', { nguon: TU }, () => them('viec', VIEC)],
     ['neo · web', { chu_the: 'neo', nguon: WEB }, () => them('viec', VIEC)], ['neo · de_xuat', { chu_the: 'neo', nguon: DX }, () => them('viec', VIEC)],
-    ['chủ thể lạ', { chu_the: 'khach' }, () => them('viec', VIEC)], ['chủ thể toString', { chu_the: 'toString' }, () => them('viec', VIEC)],
   ];
   for (const [ten, o, op] of KHONG) {
     const x = op();
@@ -316,6 +321,12 @@ test('10 kiemQuyen: mỗi ô «không» và thao tác ngoài ô ⇒ 403, kho kh�
   }
   hong(db, () => ghi(db, [them('viec', VIEC), lenh('xoa', 'viec', cu(db, 'viec', v.id))], NEO), 403, 'quyen', { bang: 'viec', loai: 'xoa' });   // gói trộn
   assert.throws(() => kiemQuyen('neo', TU, [them('viec', VIEC)]), e => e instanceof LoiGoi && e.ma === 403);
+  // kiemQuyen gọi thẳng (không qua apGoi, vd A3) tự từ chối chủ thể lạ và khoá không phải chuỗi: 403. Qua apGoi các ca này dừng sớm ở 400 (ca 5).
+  for (const [ten, ct, ng, op] of [
+    ['chủ thể lạ', 'khach', WEB, them('viec', VIEC)], ['chủ thể toString', 'toString', WEB, them('viec', VIEC)],
+    ['chủ thể mảng', ['neo'], TIN, them('viec', VIEC)], ['nguon.loai mảng', 'neo', { loai: ['tin_anh'] }, them('viec', VIEC)],
+    ['bang mảng', 'anh', WEB, { loai: 'sua', bang: ['cai_tien'], id: c.id, phien_ban: 1, truong: { noi_dung: 'lậu' } }],
+  ]) assert.throws(() => kiemQuyen(ct, ng, [op]), e => e instanceof LoiGoi && e.ma === 403 && e.loi === 'quyen', ten);
   const CO = [
     ...['anh', 'anh · de_xuat'].flatMap(ai => {
       const o = ai === 'anh' ? {} : ANH_DX;
