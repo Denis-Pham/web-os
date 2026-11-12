@@ -60,7 +60,7 @@ export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.st
   const moiGio = ch.thuMucXuat ? t => ghiSoDem(db, ch.thuMucXuat, t) : undefined;
   if (moiGio) { try { moiGio(bayGio()); } catch { ghiLog('LỖI ghi so đếm'); } }
   const hen = henSaoLuu(db, ch, { dongHo, ghiLog, moiGio });   // bản giờ + bản ngày 03:00 (A6)
-  const ctx = { ch, kiem, db };
+  const ctx = { ch, kiem, db, bayGio };
   const server = http.createServer((req, res) => {
     const t0 = performance.now(), p = (req.url || '').split('?')[0];
     // Log: phương thức, đường (bỏ query), mã, thời gian — không header (vé), không thân.
@@ -77,7 +77,7 @@ export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.st
   try { await nghe(server, ch.ngheSocket, ch.cong); await nghe(kernel, ch.ngheKernel); }
   catch (e) { await dong(); throw e; }
   const dc = server.address();
-  return { server, kernel, cong: typeof dc === 'string' ? null : dc.port, ngheSocket: ch.ngheSocket, ngheKernel: ch.ngheKernel, dong };
+  return { server, kernel, cong: typeof dc === 'string' ? null : dc.port, ngheSocket: ch.ngheSocket, ngheKernel: ch.ngheKernel, dong, db };
 }
 
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
