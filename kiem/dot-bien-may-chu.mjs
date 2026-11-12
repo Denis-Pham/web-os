@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000;
@@ -418,8 +418,26 @@ function chep(dich) {
 
 // rc 0 ⇒ SỐNG · rc 1 kèm ít nhất một test hỏng ⇒ DIỆT · hết giờ / chết vì tín hiệu / rc khác ⇒ LỖI ĐO.
 // Tệp test không nạp được (ca «not ok» mang tên tệp *.test.mjs, hoặc số test chạy ít hơn bản gốc) ⇒ LỖI ĐO: đỏ vì import hỏng, không phải test bắt.
-function chayTest(thuMuc, soGoc = 0) {
-  const r = spawnSync(NODE, ['--test', '--test-reporter=tap', 'test-may-chu/*.test.mjs'], { cwd: thuMuc, encoding: 'utf8', timeout: HAN_MS, killSignal: 'SIGKILL' });
+// `node --test` chạy trong NHÓM tiến trình riêng (detached): xong hay hết giờ đều giết CẢ nhóm — SIGKILL riêng cha bỏ lại tiến trình
+// con từng tệp test (treo mãi). TMPDIR + WO_GOC (chung.mjs) trỏ thư mục riêng của lượt, dọn sau lượt: test bị giết không bỏ lại wo-*.
+function chayCon(thuMuc) {
+  const goc = fs.mkdtempSync('/tmp/wd-');
+  return new Promise(ok => {
+    const con = spawn(NODE, ['--test', '--test-reporter=tap', 'test-may-chu/*.test.mjs'], { cwd: thuMuc, detached: true, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, TMPDIR: goc, WO_GOC: goc } });
+    const ra = [];
+    let het = false;
+    // ESRCH: nhóm đã hết · EPERM: macOS trả khi nhóm chỉ còn tiến trình xác (zombie) chờ launchd gặt — đều là đã chết.
+    const giet = () => { try { process.kill(-con.pid, 'SIGKILL'); } catch (e) { if (e.code !== 'ESRCH' && e.code !== 'EPERM') throw e; } };
+    const t = setTimeout(() => { het = true; giet(); }, HAN_MS);
+    const xong = r => { clearTimeout(t); if (con.pid) giet(); fs.rmSync(goc, { recursive: true, force: true }); ok(r); };
+    con.stdout.on('data', d => ra.push(d));
+    con.on('error', e => xong({ error: e }));
+    con.on('close', (status, signal) => xong({ status, signal: het ? 'hết giờ' : signal, stdout: Buffer.concat(ra).toString('utf8') }));
+  });
+}
+
+async function chayTest(thuMuc, soGoc = 0) {
+  const r = await chayCon(thuMuc);
   if (r.error || r.signal) return { kq: 'LỖI ĐO', ghi: r.error?.code ?? r.signal };
   const tong = Number(/^# tests (\d+)$/m.exec(r.stdout)?.[1] ?? 0);
   if (r.status === 0) return { kq: 'SỐNG', ghi: '', tong };
@@ -429,9 +447,9 @@ function chayTest(thuMuc, soGoc = 0) {
   return r.status === 1 && hong > 0 ? { kq: 'DIỆT', ghi: dau } : { kq: 'LỖI ĐO', ghi: `rc ${r.status}, fail ${hong}` };
 }
 
-function chayHet(tam) {
+async function chayHet(tam) {
   chep(tam);
-  const goc = chayTest(tam);
+  const goc = await chayTest(tam);
   if (goc.kq !== 'SỐNG' || !(goc.tong > 0)) { console.log(`GỐC ĐỎ · ${goc.kq} · ${goc.ghi} · ${goc.tong ?? 0} test`); return 1; }
   console.log(`gốc XANH · ${goc.tong} test`);
   let xau = 0;
@@ -442,7 +460,7 @@ function chayHet(tam) {
     else {
       fs.writeFileSync(f, nguyen.replace(cu, () => moi));
       try {
-        kq = spawnSync(NODE, ['--check', f]).status !== 0 ? { kq: 'LỖI ĐO', ghi: 'lỗi cú pháp sau đột biến' } : chayTest(tam, goc.tong);
+        kq = spawnSync(NODE, ['--check', f]).status !== 0 ? { kq: 'LỖI ĐO', ghi: 'lỗi cú pháp sau đột biến' } : await chayTest(tam, goc.tong);
       } finally { fs.writeFileSync(f, nguyen); }
     }
     if (kq.kq !== 'DIỆT') xau++;
@@ -454,5 +472,5 @@ function chayHet(tam) {
 
 const tam = fs.mkdtempSync(path.join(os.tmpdir(), 'webos-dot-bien-'));
 let ma = 1;
-try { ma = chayHet(tam); } finally { fs.rmSync(tam, { recursive: true, force: true }); }
+try { ma = await chayHet(tam); } finally { fs.rmSync(tam, { recursive: true, force: true }); }
 process.exit(ma);

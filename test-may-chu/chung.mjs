@@ -23,7 +23,7 @@ export const VE = ve();
 export const DAU_GHI = { 'X-WebOS': '1', 'Content-Type': 'application/json' };
 
 export function moiTruong() {
-  const tam = fs.mkdtempSync('/tmp/wo-'), ds = [];
+  const tam = fs.mkdtempSync(path.join(process.env.WO_GOC || '/tmp', 'wo-')), ds = [];   // WO_GOC: runner đột biến đặt thư mục riêng của lượt
   let so = 0;
   // Mỗi cấu hình một bộ socket + thư mục kho riêng (hai máy chủ cùng lúc không giẫm nhau).
   const cauHinh = (them = {}, bo = []) => {
