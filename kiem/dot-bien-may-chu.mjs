@@ -285,6 +285,34 @@ const NHOM = {
     ['tin-khong-dong', MC, 'process.once(tin, () => dong().then(', 'process.once(tin, () => Promise.resolve().then('],
     ['sao-luu-bat-buoc', CH, "'thuMucSaoLuu', 'cosGhi'];   // thuMucSaoLuu bắt buộc từ A6: không chạy kho mà không sao lưu\nconst TUY_CHON = ['ngheSocket',", "'cosGhi'];\nconst TUY_CHON = ['thuMucSaoLuu', 'ngheSocket',"],
   ],
+  A3: [
+    // Đề xuất (goi.mjs, R1). Step 5: Áp dụng ghi thêm một dòng (K1) · đổi sang giá trị khác (R6) · Bỏ qua tạo gói rỗng (R9)
+    ['dx-ap-them-dong', GOI, 'ops: JSON.parse(dx.ops) }', "ops: [...JSON.parse(dx.ops), { loai: 'them', bang: 'viec', truong: { tieu_de: 'thêm lén' } }] }"],
+    ['dx-ap-doi-gia-tri', GOI, 'ops: JSON.parse(dx.ops) }', "ops: JSON.parse(dx.ops.replaceAll('-11-', '-12-')) }"],
+    ['dx-bo-qua-tao-goi', GOI, "  return { trang_thai: 'bo_qua' };", "  db.prepare(\"INSERT INTO goi_ghi (id, khoa_lap, chu_the, nguon, ops, ket_qua, tao_luc) VALUES (?, ?, 'anh', '{}', '[]', '[]', ?)\").run(randomUUID(), randomUUID(), bayGio);\n  return { trang_thai: 'bo_qua' };"],
+    // Cùng giao dịch + điều kiện trên de_xuat (hai lần ⇒ 409, một gói)
+    ['dx-cung-giao-dich', GOI, "bayGio, goi_id => doiDeXuat(db, dx, 'ap_dung', goi_id, chu_the, bayGio));", "bayGio);\n  doiDeXuat(db, dx, 'ap_dung', kq.goi_id, chu_the, bayGio);"],
+    ['dx-goi-sau-ghi', GOI, '    sauGhi?.(ng.goi_id);\n', ''],
+    ['dx-dk-cho', GOI, " AND trang_thai = 'cho' AND phien_ban = ?", ' AND phien_ban = ?'],
+    ['dx-dk-doi-0', GOI, "  if (r.changes !== 1) throw new LoiGoi(409, 'de_xuat_da_xu_ly');\n", ''],
+    ['dx-ap-dung-trang-thai', GOI, "doiDeXuat(db, dx, 'ap_dung',", "doiDeXuat(db, dx, 'bo_qua',"],
+    ['dx-lap-luon-409', GOI, 'kq.lap && kq.goi_id !== dx.goi_id', 'kq.lap'],
+    ['dx-lap-bo', GOI, "  if (kq.lap && kq.goi_id !== dx.goi_id) throw new LoiGoi(409, 'khoa_lap_trung');\n", ''],
+    ['dx-404', GOI, "  if (!dx) throw new LoiGoi(404, 'khong_co');\n  return dx;", '  return dx;'],
+    // Người duyệt chỉ anh (hàm + hai chỗ gọi), từng điều kiện
+    ['dx-duyet-ham', GOI, 'function kiemNguoiDuyet(chu_the, nguon) {\n', 'function kiemNguoiDuyet(chu_the, nguon) {\n  return;\n'],
+    ['dx-duyet-goi-bo-qua', GOI, '  kiemNguoiDuyet(chu_the, nguon);\n  doiDeXuat(db, layDeXuat', '  doiDeXuat(db, layDeXuat'],
+    ['dx-duyet-goi-ap-dung', GOI, '  kiemNguoiDuyet(chu_the, nguon);\n  const dx = layDeXuat', '  const dx = layDeXuat'],
+    ['dx-duyet-chi-anh', GOI, "chu_the !== 'anh' || ", ''],
+    ['dx-duyet-o-quyen', GOI, ' || !quyenCua(chu_the, nguon.loai)) throw new LoiGoi(403, \'quyen\', { bang: \'de_xuat\'', ") throw new LoiGoi(403, 'quyen', { bang: 'de_xuat'"],
+    ['dx-duyet-nguon', GOI, "  kiemNguon(nguon);\n  if (chu_the !== 'anh'", "  if (chu_the !== 'anh'"],
+    ['dx-duyet-chu-the', GOI, "  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  kiemNguon(nguon);\n", '  kiemNguon(nguon);\n'],
+    // taoDeXuat: R11 qua kiemOps, từng trường
+    ['dx-tao-kiem-ops', GOI, 'JSON.stringify(kiemOps(ops)), bayGio', 'JSON.stringify(ops), bayGio'],
+    ['dx-tao-chu-the', GOI, "  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  if (!hopLe({ chu: 200", '  if (!hopLe({ chu: 200'],
+    ['dx-tao-mach', GOI, "  if (!hopLe({ chu: 200, it: 1, bb: true }, mach)) throw saiLuocDo({ ly_do: 'mach' });\n", ''],
+    ['dx-tao-noi-dung', GOI, "  if (!hopLe({ chu: 2000, bb: true }, noi_dung)) throw saiLuocDo({ ly_do: 'noi_dung' });\n", ''],
+  ],
 };
 
 const chon = process.argv.slice(2);

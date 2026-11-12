@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { moKho } from '../may-chu/kho.mjs';
-import { apGoi, hoanTac, kiemOps, kiemQuyen, LoiGoi } from '../may-chu/goi.mjs';
+import { apGoi, hoanTac, kiemOps, kiemQuyen, LoiGoi, taoDeXuat, boQuaDeXuat, apDungDeXuat } from '../may-chu/goi.mjs';
 
 let giay = 0, so = 0;
 const gio = () => new Date(Date.UTC(2026, 10, 12, 1, 0, giay++)).toISOString();
@@ -378,4 +378,87 @@ test('12 tien_do: doi_tuong phải là viec:<id> còn hiện, kiểm TRONG giao 
   duoc(db, () => ghi(db, [sua('tien_do', t2, { doi_tuong: `viec:${v3.id}` })]));
   ghi(db, [lenh('xoa', 'viec', cu(db, 'viec', v3.id))]);
   hong(db, () => ghi(db, [sua('tien_do', cu(db, 'tien_do', t.id), { phan_tram: 60 })]), 403, 'quyen', { bang: 'tien_do', loai: 'sua' });
+});
+
+// ===== Đề xuất (task A3, R1): Neo/AI tạo, chỉ anh Áp dụng / Bỏ qua. A4 dùng lại ba hàm này.
+const dx = (db, ops, o = {}) => taoDeXuat(db, { mach: 'cos', chu_the: 'neo', noi_dung: 'Neo đề xuất', ops, ...o }, gio()).id;
+const dongDx = (db, id) => ({ ...db.prepare('SELECT * FROM de_xuat WHERE id = ?').get(id) });
+const boQua = (db, id, { chu_the = 'anh', nguon = WEB } = {}) => boQuaDeXuat(db, { id, chu_the, nguon }, gio());
+const apDung = (db, id, { chu_the = 'anh', nguon = WEB, khoa_lap = khoa() } = {}) => apDungDeXuat(db, { id, khoa_lap, chu_the, nguon }, gio());
+
+test('13 taoDeXuat: ops qua kiemOps lúc tạo (ngày ngoài 2000–2100 ⇒ 400, không lưu: R11); mach/noi_dung/chu_the sai ⇒ 400; dòng cho + ops chuẩn hoá', () => {
+  const db = moKho(), luc = gio();
+  const { id } = taoDeXuat(db, { mach: 'cos', chu_the: 'neo', noi_dung: 'Dời hạn', ops: [them('viec', { tieu_de: 'A', han: '2026-11-21' })] }, luc);
+  assert.deepEqual(dongDx(db, id), { id, mach: 'cos', chu_the: 'neo', noi_dung: 'Dời hạn', ops: '[{"loai":"them","bang":"viec","truong":{"han":"2026-11-21","tieu_de":"A"}}]',
+    trang_thai: 'cho', goi_id: null, phien_ban: 1, tao_luc: luc, sua_luc: luc, nguoi_sua: 'neo' });
+  for (const han of ['2101-01-01', '1999-12-31', '2026-02-30'])
+    hong(db, () => dx(db, V({ tieu_de: 'A', han })), 400, 'luoc_do', { thao_tac: 0, ly_do: 'gia_tri', truong: 'han' }, han);
+  hong(db, () => dx(db, []), 400, 'luoc_do', { ly_do: 'so_thao_tac' });
+  const sai = [[{ mach: '' }, 'mach'], [{ mach: null }, 'mach'], [{ mach: 'x'.repeat(201) }, 'mach'], [{ mach: ['cos'] }, 'mach'],
+    [{ noi_dung: null }, 'noi_dung'], [{ noi_dung: 'x'.repeat(2001) }, 'noi_dung'], [{ noi_dung: 'a\0b' }, 'noi_dung'], [{ chu_the: 'khach' }, 'chu_the']];
+  for (const [o, ly_do] of sai) hong(db, () => dx(db, V({ tieu_de: 'A' }), o), 400, 'luoc_do', { ly_do }, JSON.stringify(o));
+  assert.equal(dx(db, V({ tieu_de: 'A' }), { mach: 'x'.repeat(200), noi_dung: 'x'.repeat(2000), chu_the: 'anh' }).length, 36);   // đối chứng đúng trần
+  assert.equal(dem(db, 'de_xuat'), 2);
+});
+
+test('14 boQuaDeXuat: không tạo gói, goi_ghi/nhat_ky/dữ liệu y nguyên (R9); lần hai ⇒ 409; không có ⇒ 404; chỉ anh · web/de_xuat', () => {
+  const db = moKho();
+  moi(db);
+  const id = dx(db, V({ tieu_de: 'B' }));
+  const ngoai = () => bam(['goi_ghi', 'nhat_ky', 'viec', 'lich', 'tien_do', 'cai_tien'].map(b => db.prepare(`SELECT * FROM ${b} ORDER BY rowid`).all()));
+  for (const ai of [NEO, { chu_the: 'anh', nguon: TIN }, { chu_the: 'anh', nguon: TU }, { chu_the: 'neo', nguon: TU }])
+    hong(db, () => boQua(db, id, ai), 403, 'quyen', { bang: 'de_xuat', loai: 'duyet' }, JSON.stringify(ai));
+  hong(db, () => boQua(db, id, { chu_the: 'khach' }), 400, 'luoc_do', { ly_do: 'chu_the' });
+  hong(db, () => boQua(db, id, { nguon: { loai: 'web', la: 1 } }), 400, 'luoc_do', { ly_do: 'nguon_khoa_la' });
+  const truoc = ngoai();
+  assert.deepEqual(boQua(db, id), { trang_thai: 'bo_qua' });
+  assert.equal(ngoai(), truoc, 'Bỏ qua đổi goi_ghi / nhat_ky / dữ liệu');
+  const d = dongDx(db, id);
+  assert.deepEqual([d.trang_thai, d.goi_id, d.phien_ban, d.nguoi_sua], ['bo_qua', null, 2, 'anh']);
+  hong(db, () => boQua(db, id), 409, 'de_xuat_da_xu_ly');
+  hong(db, () => apDung(db, id), 409, 'de_xuat_da_xu_ly');   // ops them vẫn chạy được: chỉ điều kiện trên de_xuat chặn, gói lùi theo
+  for (const sai of ['khong-co', 42, null]) hong(db, () => boQua(db, sai), 404, 'khong_co', undefined, String(sai));
+  assert.deepEqual(boQua(db, dx(db, V({ tieu_de: 'C' })), { nguon: DX }), { trang_thai: 'bo_qua' });   // đối chứng anh · de_xuat
+});
+
+test('15 apDungDeXuat: chạy đúng ops đã lưu (một gói anh, Hoàn tác được); đổi de_xuat CÙNG giao dịch ⇒ hai lần ⇒ 409 một gói; cùng khoa_lap ⇒ gói cũ', () => {
+  const db = moKho();
+  const b = moi(db, 'viec', { tieu_de: 'B', han: '2026-11-15', ghi_chu: 'giữ' });
+  const id = dx(db, [sua('viec', b, { han: '2026-11-21' })]);
+  const kq = apDung(db, id, { khoa_lap: 'ap-dung-mot' });
+  assert.deepEqual(Object.keys(kq).sort(), ['goi_id', 'ma_hoan']);
+  const g = db.prepare('SELECT * FROM goi_ghi WHERE id = ?').get(kq.goi_id);
+  assert.deepEqual([g.khoa_lap, g.chu_the, JSON.parse(g.nguon), JSON.parse(g.ops), g.ma_hoan],
+    ['ap-dung-mot', 'anh', WEB, [sua('viec', b, { han: '2026-11-21' })], kq.ma_hoan]);
+  assert.deepEqual([dong(db, 'viec', b.id).han, dong(db, 'viec', b.id).ghi_chu], ['2026-11-21', 'giữ']);
+  const d = dongDx(db, id);
+  assert.deepEqual([d.trang_thai, d.goi_id, d.phien_ban, d.nguoi_sua, d.sua_luc === g.tao_luc], ['ap_dung', kq.goi_id, 2, 'anh', true]);
+  const truoc = anhKho(db);
+  assert.deepEqual(apDung(db, id, { khoa_lap: 'ap-dung-mot' }), kq, 'bấm hai lần cùng khoá ⇒ cùng gói');
+  assert.equal(anhKho(db), truoc);
+  const id2 = dx(db, V({ tieu_de: 'Mua quà' }));
+  duoc(db, () => apDung(db, id2));
+  hong(db, () => apDung(db, id2), 409, 'de_xuat_da_xu_ly');   // khác khoá, ops them vẫn chạy được ⇒ chỉ điều kiện trên de_xuat chặn
+  hong(db, () => boQua(db, id2), 409, 'de_xuat_da_xu_ly');
+  assert.deepEqual([db.prepare("SELECT count(*) AS n FROM viec WHERE tieu_de = 'Mua quà'").get().n, dem(db, 'goi_ghi')], [1, 3]);
+  hoan(db, kq.ma_hoan);
+  assert.equal(dong(db, 'viec', b.id).han, '2026-11-15');
+});
+
+test('16 apDungDeXuat: kiemOps + kiemQuyen chạy lại; chỉ anh · web/de_xuat; khoa_lap của gói khác ⇒ 409, đề xuất vẫn cho; không có ⇒ 404', () => {
+  const db = moKho();
+  const ct = dx(db, [them('cai_tien', CT)]);   // neo đề xuất được, nhưng anh không có quyền them cai_tien
+  hong(db, () => apDung(db, ct), 403, 'quyen', { bang: 'cai_tien', loai: 'them' });
+  const bi = dx(db, V({ tieu_de: 'A' }));
+  db.prepare('UPDATE de_xuat SET ops = ? WHERE id = ?').run(JSON.stringify(V({ tieu_de: 'A', han: '2101-01-01' })), bi);   // kho bị sửa ngoài đường
+  hong(db, () => apDung(db, bi), 400, 'luoc_do', { thao_tac: 0, ly_do: 'gia_tri', truong: 'han' });
+  const v = dx(db, V({ tieu_de: 'B' }));
+  for (const ai of [NEO, { chu_the: 'anh', nguon: TIN }, { chu_the: 'anh', nguon: TU }])   // neo · tin_anh có quyền them viec: chỉ cổng người duyệt chặn
+    hong(db, () => apDung(db, v, ai), 403, 'quyen', { bang: 'de_xuat', loai: 'duyet' }, JSON.stringify(ai));
+  hong(db, () => apDung(db, v, { chu_the: 'khach' }), 400, 'luoc_do', { ly_do: 'chu_the' });
+  ghi(db, V({ tieu_de: 'B' }), { khoa_lap: 'khoa-cua-goi-khac' });
+  hong(db, () => apDung(db, v, { khoa_lap: 'khoa-cua-goi-khac' }), 409, 'khoa_lap_trung');
+  for (const k of [ct, bi, v]) assert.equal(dongDx(db, k).trang_thai, 'cho');
+  duoc(db, () => apDung(db, v, { nguon: DX }));   // đối chứng anh · de_xuat
+  for (const sai of ['khong-co', 42, null]) hong(db, () => apDung(db, sai), 404, 'khong_co', undefined, String(sai));
 });

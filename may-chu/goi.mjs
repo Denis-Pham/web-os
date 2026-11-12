@@ -149,7 +149,8 @@ function apMot(db, op, ng) {
 
 const KHOA_LAP = /^[A-Za-z0-9_-]{8,100}$/;
 
-export function apGoi(db, { khoa_lap, chu_the, nguon, ops }, bayGio) {
+// sauGhi(goi_id) (chỉ apDungDeXuat): chạy trong CÙNG giao dịch sau khi ghi gói MỚI; ném ⇒ lùi cả gói. Gói lặp (lap) không gọi.
+export function apGoi(db, { khoa_lap, chu_the, nguon, ops }, bayGio, sauGhi) {
   if (typeof khoa_lap !== 'string' || !KHOA_LAP.test(khoa_lap)) throw saiLuocDo({ ly_do: 'khoa_lap' });
   if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });
   const nguonJson = kiemNguon(nguon);
@@ -168,6 +169,7 @@ export function apGoi(db, { khoa_lap, chu_the, nguon, ops }, bayGio) {
     const ma_hoan = randomBytes(16).toString('hex');
     db.prepare('INSERT INTO goi_ghi (id, khoa_lap, chu_the, nguon, ops, ket_qua, ma_hoan, tao_luc) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .run(ng.goi_id, khoa_lap, chu_the, nguonJson, opsJson, JSON.stringify(ket_qua), ma_hoan, bayGio);
+    sauGhi?.(ng.goi_id);
     return { goi_id: ng.goi_id, ma_hoan, ket_qua, lap: false };
   });
 }
@@ -202,4 +204,50 @@ export function hoanTac(db, { ma_hoan, chu_the, nguon }, bayGio) {
         JSON.stringify(ket_qua), goc.id, bayGio);
     return { goi_id: ng.goi_id };
   });
+}
+
+// Đề xuất (thiết kế 2, 4, 13; R1): Neo/AI tạo, chỉ anh Áp dụng / Bỏ qua. ops qua kiemOps NGAY lúc tạo (R11: ngày ngoài miền không lưu được).
+export function taoDeXuat(db, { mach, chu_the, noi_dung, ops }, bayGio) {
+  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });
+  if (!hopLe({ chu: 200, it: 1, bb: true }, mach)) throw saiLuocDo({ ly_do: 'mach' });
+  if (!hopLe({ chu: 2000, bb: true }, noi_dung)) throw saiLuocDo({ ly_do: 'noi_dung' });
+  const id = randomUUID();
+  db.prepare("INSERT INTO de_xuat (id, mach, chu_the, noi_dung, ops, trang_thai, tao_luc, sua_luc, nguoi_sua) VALUES (?, ?, ?, ?, ?, 'cho', ?, ?, ?)")
+    .run(id, mach, chu_the, noi_dung, JSON.stringify(kiemOps(ops)), bayGio, bayGio, chu_the);
+  return { id };
+}
+
+// Người duyệt (thiết kế 4): chỉ anh, qua nguồn có ô quyền (web, de_xuat); neo hay anh · tin_anh/tu_chay ⇒ 403.
+function kiemNguoiDuyet(chu_the, nguon) {
+  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });
+  kiemNguon(nguon);
+  if (chu_the !== 'anh' || !quyenCua(chu_the, nguon.loai)) throw new LoiGoi(403, 'quyen', { bang: 'de_xuat', loai: 'duyet' });
+}
+function layDeXuat(db, id) {
+  const dx = typeof id === 'string' ? db.prepare('SELECT * FROM de_xuat WHERE id = ?').get(id) : undefined;
+  if (!dx) throw new LoiGoi(404, 'khong_co');
+  return dx;
+}
+// Đổi có điều kiện trang_thai = 'cho' AND phien_ban vừa đọc: 0 dòng đổi ⇒ đã có người xử lý ⇒ 409.
+function doiDeXuat(db, dx, trang_thai, goi_id, chu_the, bayGio) {
+  const r = db.prepare("UPDATE de_xuat SET trang_thai = ?, goi_id = ?, phien_ban = phien_ban + 1, sua_luc = ?, nguoi_sua = ? WHERE id = ? AND trang_thai = 'cho' AND phien_ban = ?")
+    .run(trang_thai, goi_id, bayGio, chu_the, dx.id, dx.phien_ban);
+  if (r.changes !== 1) throw new LoiGoi(409, 'de_xuat_da_xu_ly');
+}
+
+// Bỏ qua: chỉ đổi dòng de_xuat — không tạo gói, không đổi goi_ghi, không thêm lịch sử Hoàn tác (R9). Không ghi nhat_ky (cột goi_id NOT NULL).
+export function boQuaDeXuat(db, { id, chu_the, nguon }, bayGio) {
+  kiemNguoiDuyet(chu_the, nguon);
+  doiDeXuat(db, layDeXuat(db, id), 'bo_qua', null, chu_the, bayGio);
+  return { trang_thai: 'bo_qua' };
+}
+
+// Áp dụng: chạy ĐÚNG ops đã lưu qua apGoi (kiemOps + kiemQuyen lại); đổi de_xuat trong CÙNG giao dịch với gói ⇒ hai lần ⇒ 409, một gói.
+export function apDungDeXuat(db, { id, khoa_lap, chu_the, nguon }, bayGio) {
+  kiemNguoiDuyet(chu_the, nguon);
+  const dx = layDeXuat(db, id);
+  const kq = apGoi(db, { khoa_lap, chu_the, nguon, ops: JSON.parse(dx.ops) }, bayGio, goi_id => doiDeXuat(db, dx, 'ap_dung', goi_id, chu_the, bayGio));
+  // khoa_lap lặp (bấm hai lần) ⇒ apGoi trả gói cũ: chỉ nhận khi đó đúng là gói của đề xuất này.
+  if (kq.lap && kq.goi_id !== dx.goi_id) throw new LoiGoi(409, 'khoa_lap_trung');
+  return { goi_id: kq.goi_id, ma_hoan: kq.ma_hoan };
 }
