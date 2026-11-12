@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { kiemYeuCau } from './xac-thuc.mjs';
 import { LoiGoi, apGoi, hoanTac, boQuaDeXuat, apDungDeXuat } from './goi.mjs';
 import { docTepXuat, LUOC_TRANG_THAI, LUOC_VIEC_BO } from './xuat.mjs';
+import { ghiBat, xem as xemBan, duyet as duyetBan, lui as luiBan, tuanTu, tepBan, tenDung, docTinh, SHA, MANIFEST } from './ban.mjs';
 
 const DAU_AN_NINH = {
   'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
@@ -50,6 +51,9 @@ const iso = ctx => new Date(ctx.bayGio()).toISOString();
 const gioVn = ctx => new Date(ctx.bayGio() + 7 * 3600e3).toISOString();   // giờ VN UTC+7 (GIẢ ĐỊNH thiết kế 8): slice 10 = ngày, 16 = phút
 // Một cổng cho mọi route ghi kho: gọi ĐẦU handler, trước mọi đọc thân/kho.
 function kiemCosGhi(ctx) { if (ctx.ch.cosGhi !== true) throw new LoiGoi(423, 'cos_ghi_tat'); }
+// Cửa duyệt bản (thiết kế 6): route ghi bản chỉ bật khi bản phục vụ thuộc chính máy chủ (ban.mjs ghiBat); gọi ĐẦU handler.
+function kiemGhiBan(ctx) { if (!ghiBat(ctx.ch)) throw new LoiGoi(403, 'ghi_tat'); }
+const khop = (re, s) => typeof s === 'string' && re.test(s);
 // fatal: byte UTF-8 hỏng ⇒ ném (Buffer.toString thay bằng U+FFFD rồi lưu — soát A3); ignoreBOM: giữ BOM ⇒ JSON.parse từ chối như trước.
 const UTF8 = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
 function docJson(than, khoa) {
@@ -204,6 +208,31 @@ export const ROUTE = {
       } },
     };
   },
+  // Cửa duyệt bản (thiết kế 6, A5): xem/duyệt/lùi chạy tuanTu (hai lần bấm không chép chồng); /api/ban/tep chỉ đọc ⇒ không cần ghiBat.
+  'GET /api/ban': ({ ctx, query }) => {
+    kiemGhiBan(ctx);
+    docQuery(query, []);
+    return tuanTu(() => xemBan(ctx.ch));
+  },
+  'POST /api/ban/duyet': ({ ctx, than }) => {
+    kiemGhiBan(ctx);
+    const { sha, manifest } = docJson(than, ['sha', 'manifest']);
+    if (!khop(SHA, sha)) throw new LoiGoi(400, 'luoc_do', { ly_do: 'sha' });
+    if (!khop(MANIFEST, manifest)) throw new LoiGoi(400, 'luoc_do', { ly_do: 'manifest' });
+    return tuanTu(() => duyetBan(ctx.ch, sha, manifest));
+  },
+  'POST /api/ban/lui': ({ ctx, than }) => {
+    kiemGhiBan(ctx);
+    const { sha } = docJson(than, ['sha']);
+    if (!khop(SHA, sha)) throw new LoiGoi(400, 'luoc_do', { ly_do: 'sha' });
+    return tuanTu(() => luiBan(ctx.ch, sha));
+  },
+  'GET /api/ban/tep': ({ ctx, query }) => {
+    const { sha, ten } = docQuery(query, ['sha', 'ten']);
+    if (!khop(SHA, sha)) throw saiQuery('sha');
+    if (!tenDung(ten)) throw saiQuery('ten');
+    return tepBan(ctx.ch, sha, ten);
+  },
 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -219,6 +248,8 @@ export async function xuLy(ctx, req, res) {
     than = await docThan(req, TRAN_THAN);
     if (than === null) return traJson(res, 413, { loi: 'than_qua_lon' });
   }
+  // GET/HEAD ngoài /api/: /phuc-hoi(.js) hoặc tệp của bản đã duyệt (ban.mjs docTinh) — vẫn sau cổng vé.
+  if ((req.method === 'GET' || req.method === 'HEAD') && !p.startsWith('/api/')) return tra(res, ...await docTinh(ctx.ch, p));
   // Đoạn UUID đầu tiên ⇒ ':id'; «:id» viết thẳng trong đường (không có UUID) ⇒ 404.
   const doan = p.split('/'), i = doan.findIndex(d => UUID.test(d)), id = i < 0 ? null : doan[i];
   if (i >= 0) doan[i] = ':id';

@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000;
 const KHO = 'may-chu/kho.mjs', GOI = 'may-chu/goi.mjs';
 const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-chu.mjs', CH = 'may-chu/cau-hinh.mjs';
-const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs', KER = 'may-chu/kernel.mjs';
+const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs', KER = 'may-chu/kernel.mjs', BAN = 'may-chu/ban.mjs';
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -499,6 +499,50 @@ const NHOM = {
     ['query-ham', API, 'function docQuery(query, khoa) {\n  const o = {};\n', 'function docQuery(query, khoa) {\n  const o = {};\n  return o;\n'],
     ['query-ghi-goi', API, 'if (than !== null) docQuery(query, []); ', ''],
     ['query-phien-goi', API, '({ ve, query }) => { docQuery(query, []); return', '({ ve, query }) => { return'],
+    // Cửa duyệt bản (Step 5). Tính lại manifest: hàm (bỏ nội dung) + chỗ gọi (bản mới chép; SHA từng duyệt)
+    ['manifest-ham', BAN, 'ds.map(f => [f.ten, f.co, f.sha256])', 'ds.map(f => [f.ten, f.co])'],
+    ['manifest-goi-chep', BAN, "    if (manifestCua(await docBan(tam, uidMay)) !== manifest) throw new LoiGoi(409, 'manifest_lech');\n", ''],
+    ['manifest-goi-da-duyet', BAN, "    if (manifestCua(await docBan(dich, uidMay)) !== manifest) throw new LoiGoi(409, 'manifest_lech');\n", ''],
+    // Chủ tệp bản chờ = uidCho: hàm + ba chỗ gọi (duyệt, xem, xem tệp)
+    ['uid-cho-ham', BAN, "    if (st.uid !== uid) throw new BanHong('sai_chu');\n", ''],
+    ['uid-cho-goi-duyet', BAN, 'docBan(nguon, ch.uidCho)', 'docBan(nguon, uidMay)'],
+    ['uid-cho-goi-xem', BAN, 'docBan(path.join(thuMucCho, sha), ch.uidCho)', 'docBan(path.join(thuMucCho, sha), process.getuid())'],
+    ['uid-cho-goi-tep', BAN, "docBan(path.join(ch.thuMucCho, 'ban', sha), ch.uidCho)", "docBan(path.join(ch.thuMucCho, 'ban', sha), process.getuid())"],
+    // O_NOFOLLOW: cờ (hàm) + chỗ gọi theo symlink trước khi mở
+    ['nofollow-ham', BAN, ' | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK', ' | fs.constants.O_NONBLOCK'],
+    ['nofollow-goi', BAN, 'await docTep(path.join(thuMuc, t), uid, TRAN_TEP)', 'await docTep(await fsp.realpath(path.join(thuMuc, t)), uid, TRAN_TEP)'],
+    // Đuôi / cỡ tệp / số tệp / tổng: hàm hoặc hằng + chỗ kiểm
+    ['duoi-ham', BAN, ' && !!loaiTep(t)', ''],
+    ['duoi-goi', BAN, "    if (!tenDung(t)) throw new BanHong('ten_sai');\n", ''],
+    ['tran-tep-hang', BAN, 'TRAN_TEP = 20480,', 'TRAN_TEP = 20481,'],
+    ['tran-tep-goi', BAN, "      if (n > tran) throw new BanHong('tep_lon');\n", ''],
+    ['so-tep-hang', BAN, 'TRAN_SO_TEP = 64,', 'TRAN_SO_TEP = 65,'],
+    ['so-tep-goi', BAN, "  if (ten.length > TRAN_SO_TEP) throw new BanHong('qua_nhieu_tep');\n", ''],
+    ['tong-hang', BAN, 'TRAN_TONG = 1 << 20,', 'TRAN_TONG = 2 << 20,'],
+    ['tong-bien', BAN, '(tong += buf.length) > TRAN_TONG', '(tong += buf.length) >= TRAN_TONG'],
+    ['tong-goi', BAN, "    if ((tong += buf.length) > TRAN_TONG) throw new BanHong('tong_lon');\n", ''],
+    // Route ghi bản chỉ bật khi bản phục vụ thuộc _webos (uidBan = uid tiến trình): hàm + điều kiện uid + cổng api + ba route + CLI + kiểu cấu hình
+    ['ghi-ban-ham', BAN, 'export function ghiBat(ch) { return ', 'export function ghiBat(ch) { return true || '],
+    ['ghi-ban-uid', BAN, 'ch.uidBan === process.getuid() && ', ''],
+    ['ghi-ban-kiem-ham', API, 'function kiemGhiBan(ctx) { if (!ghiBat(ctx.ch)) throw', 'function kiemGhiBan(ctx) { if (false) throw'],
+    ['ghi-ban-goi-xem', API, '    kiemGhiBan(ctx);\n    docQuery(query, []);\n', '    docQuery(query, []);\n'],
+    ['ghi-ban-goi-duyet', API, '    kiemGhiBan(ctx);\n    const { sha, manifest }', '    const { sha, manifest }'],
+    ['ghi-ban-goi-lui', API, '    kiemGhiBan(ctx);\n    const { sha } =', '    const { sha } ='],
+    ['ghi-ban-cli', BAN, '  if (!ghiBat(ch)) thoi(1,', '  if (false) thoi(1,'],
+    ['uid-ban-cau-hinh', CH, "throw new Error('cấu hình: uidBan phải là số nguyên ≥ 0');", '0;'],
+    // Phục vụ tĩnh: tệp của uidBan, không ra ngoài bản, hien-tai phải là <thuMucBan>/ban/<SHA40>
+    ['tinh-uid', BAN, 'st.uid !== ch.uidBan || ', ''],
+    ['tinh-trong-goc', BAN, "  if (!that.startsWith(goc + path.sep)) return [404, ''];", ''],
+    ['tinh-hien-tai', BAN, "goc !== path.join(await fsp.realpath(ch.thuMucBan), 'ban', sha)", 'false'],
+    // Lật nguyên tử, đúng thứ tự; lùi về đúng truoc
+    ['lat-thu-tu', BAN, "  if (cu && cu !== moi) doiLink(goc, 'truoc', cu);\n  doiLink(goc, 'hien-tai', moi);\n", "  doiLink(goc, 'hien-tai', moi);\n  if (cu && cu !== moi) doiLink(goc, 'truoc', cu);\n"],
+    ['lat-nguyen-tu', BAN, "  fs.symlinkSync(path.join('ban', sha), tam);\n", "  fs.rmSync(path.join(goc, ten), { force: true });\n  fs.symlinkSync(path.join('ban', sha), tam);\n"],
+    ['lui-ve-truoc', BAN, '  return lat(goc, tr);\n', '  return lat(goc, ht);\n'],
+    ['lui-truoc-lech', BAN, "  if (sha !== tr) throw new LoiGoi(409, 'truoc_lech');\n", ''],
+    // /phuc-hoi: mã máy chủ tra trước bản; nút Lùi gửi đúng truoc và gỡ service worker
+    ['phuc-hoi-goi', BAN, '  if (Object.hasOwn(PHUC_HOI, p)) return [200, ...PHUC_HOI[p]];\n', ''],
+    ['phuc-hoi-lui-sha', BAN, 'body: JSON.stringify({ sha })', "body: JSON.stringify({ sha: 'x' })"],
+    ['phuc-hoi-go-sw', BAN, '    if (navigator.serviceWorker) for (const d of await navigator.serviceWorker.getRegistrations()) await d.unregister();\n', ''],
   ],
 };
 

@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const BAT_BUOC = ['teamDomain', 'aud', 'emails', 'ngheKernel', 'thuMucKho', 'thuMucSaoLuu', 'cosGhi'];   // thuMucSaoLuu bắt buộc từ A6: không chạy kho mà không sao lưu
-const TUY_CHON = ['ngheSocket', 'cong', 'thuMucBan', 'thuMucCho', 'uidCho', 'thuMucXuat', 'thuMucXuatVao', 'tepKhoaAI'];
+const TUY_CHON = ['ngheSocket', 'cong', 'thuMucBan', 'thuMucCho', 'uidCho', 'thuMucXuat', 'thuMucXuatVao', 'tepKhoaAI', 'uidBan'];
 const DUONG = ['ngheSocket', 'ngheKernel', 'thuMucKho', 'thuMucBan', 'thuMucCho', 'thuMucXuat', 'thuMucXuatVao', 'thuMucSaoLuu', 'tepKhoaAI'];
 
 export function docCauHinh(duong) {
@@ -19,6 +19,8 @@ export function docCauHinh(duong) {
   if (typeof ch.cosGhi !== 'boolean') throw new Error('cấu hình: cosGhi phải là true/false');
   if (Object.hasOwn(ch, 'cong') && (!Number.isInteger(ch.cong) || ch.cong < 0 || ch.cong > 65535)) throw new Error('cấu hình: cong sai');
   if (Object.hasOwn(ch, 'uidCho') && (!Number.isInteger(ch.uidCho) || ch.uidCho < 0)) throw new Error('cấu hình: uidCho phải là số nguyên ≥ 0');
+  // uidBan: uid chủ bản đang phục vụ (= uid _webos); route ghi bản chỉ bật khi bằng uid tiến trình (ban.mjs ghiBat, A5).
+  if (Object.hasOwn(ch, 'uidBan') && (!Number.isInteger(ch.uidBan) || ch.uidBan < 0)) throw new Error('cấu hình: uidBan phải là số nguyên ≥ 0');
   for (const k of DUONG) if (Object.hasOwn(ch, k) && (typeof ch[k] !== 'string' || !path.isAbsolute(ch[k]) || ch[k].includes('\0'))) throw new Error('cấu hình: ' + k + ' phải là đường tuyệt đối');
   // So sau chuẩn hoá (`//`, `/./`, `x/../`): trùng thì nghe() sẽ gỡ socket web của chính mình để thay bằng kernel. Dev (cong) không có ngheSocket.
   if (Object.hasOwn(ch, 'ngheSocket') && path.resolve(ch.ngheKernel) === path.resolve(ch.ngheSocket)) throw new Error('cấu hình: ngheKernel trùng ngheSocket');

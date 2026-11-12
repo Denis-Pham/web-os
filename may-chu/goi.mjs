@@ -246,7 +246,8 @@ export function boQuaDeXuat(db, { id, chu_the, nguon }, bayGio) {
 // trừ đúng khoá của gói đã áp (bấm hai lần ⇒ apGoi trả gói cũ). Bỏ qua (goi_id null) ⇒ luôn 409.
 function kiemConCho(db, dx, khoa_lap) {
   if (dx.trang_thai === 'cho') return;
-  if (typeof khoa_lap !== 'string' || !db.prepare('SELECT 1 FROM goi_ghi WHERE id = ? AND khoa_lap = ?').get(dx.goi_id, khoa_lap)) throw new LoiGoi(409, 'de_xuat_da_xu_ly');
+  if (typeof khoa_lap === 'string' && db.prepare('SELECT 1 FROM goi_ghi WHERE id = ? AND khoa_lap = ?').get(dx.goi_id, khoa_lap)) return;   // typeof: không gắn giá trị lạ vào SQLite
+  throw new LoiGoi(409, 'de_xuat_da_xu_ly');
 }
 
 // Áp dụng: chạy ĐÚNG ops đã lưu qua apGoi (kiemOps + kiemQuyen lại); đổi de_xuat trong CÙNG giao dịch với gói ⇒ hai lần ⇒ 409, một gói.
