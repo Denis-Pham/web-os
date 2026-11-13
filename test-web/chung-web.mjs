@@ -108,3 +108,14 @@ export async function gieo(m, ops) {
   assert.equal(r.ma, 200, r.than);
   return r.json;
 }
+
+// Soi bộ nhớ V8 của trang (cả thế giới phụ cùng isolate): GC rồi chụp heap, tìm chuỗi trong ảnh chụp. Chuỗi bí mật phải ASCII và đến trang
+// dạng chuỗi PHẲNG (JSON.parse của /api/*): chuỗi ghép (ConsString) hiện trong ảnh chụp là «(concatenated string)», không thấy nguyên chuỗi.
+// Không đọc chữ của trang bằng textContent()/hasText trước khi soi (chuỗi trả về nằm lại thế giới phụ) — đếm bằng locator.count().
+export async function heapCo(page, chuoi) {
+  const cdp = await page.context().newCDPSession(page), phan = [];
+  cdp.on('HeapProfiler.addHeapSnapshotChunk', e => phan.push(e.chunk));
+  await cdp.send('HeapProfiler.enable'); await cdp.send('HeapProfiler.collectGarbage');
+  await cdp.send('HeapProfiler.takeHeapSnapshot', { reportProgress: false });
+  await cdp.detach(); return phan.join('').includes(chuoi);
+}

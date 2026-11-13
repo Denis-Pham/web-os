@@ -17,6 +17,7 @@ const KHO = 'may-chu/kho.mjs', GOI = 'may-chu/goi.mjs';
 const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-chu.mjs', CH = 'may-chu/cau-hinh.mjs';
 const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs', KER = 'may-chu/kernel.mjs', BAN = 'may-chu/ban.mjs';
 const DOM = 'web/dom.js', MAN_CHU = 'web/man-chu.js', T_KHUNG = ['test-web/khung.test.mjs'], T_MAN_CHU = ['test-web/man-chu.test.mjs'], T_TINH = ['test-web/tinh.test.mjs'];
+const PHIEN = 'web/phien.js', API_WEB = 'web/api.js', T_PHIEN = ['test-web/phien.test.mjs'];
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -587,6 +588,18 @@ const NHOM = {
     ['dom-chu-ham', DOM, 'for (const c of con) if (c !== null && c !== false && c !== undefined) n.append(c);', "for (const c of con) if (c !== null && c !== false && c !== undefined) { if (typeof c === 'string') n.insertAdjacentHTML('beforeend', c); else n.append(c); }", T_MAN_CHU],
     ['man-chu-chua-noi-ham', MAN_CHU, "chua_noi: 'chưa nối'", "chua_noi: '0'", T_MAN_CHU],
     ['soat-tinh-ham', 'test-web/tinh.test.mjs', '/insertAdjacentHTML\\(/, ', '', T_TINH],
+    // B1 lượt 1b: phiên — hẹn het_luc (hàm + chỗ gọi), kiểm lại khi hiện lại (hàm + pageshow + visibilitychange), xoá DOM + DON,
+    // api.js nhận ra Hết phiên (hàm + chỗ gọi) + redirect 'manual' (302 lề Access ⇒ opaqueredirect)
+    ['phien-hen-ham', PHIEN, 'return Number.isNaN(t) ? 0 : Math.max(0, t - bayGio);', 'return 2147483647;', T_PHIEN],
+    ['phien-hen-goi', PHIEN, '  datHen(o.het_luc);\n', '', T_PHIEN],
+    ['phien-kiem-lai-ham', PHIEN, 'export async function kiemLai() {', 'export async function kiemLai() { return;', T_PHIEN],
+    ['phien-pageshow-goi', PHIEN, "  window.addEventListener('pageshow', kiemLai);\n", '', T_PHIEN],
+    ['phien-hien-lai-goi', PHIEN, "  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kiemLai(); });\n", '', T_PHIEN],
+    ['phien-xoa-dom-ham', PHIEN, "  document.getElementById('noi-dung').replaceChildren();\n", '', T_PHIEN],
+    ['phien-don-goi', PHIEN, '  for (const f of DON) f();\n', '', T_PHIEN],
+    ['api-het-phien-ham', API_WEB, "export const laHetPhien = r => r.type === 'opaqueredirect' || r.status === 401 || r.status === 403;", 'export const laHetPhien = r => false;', T_PHIEN],
+    ['api-het-phien-goi', API_WEB, '  if (laHetPhien(r)) { khiHetPhien(); throw new LoiPhien(); }\n', '', T_PHIEN],
+    ['api-redirect', API_WEB, "redirect: 'manual'", "redirect: 'follow'", T_PHIEN],
   ],
 };
 
