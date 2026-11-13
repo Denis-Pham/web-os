@@ -1,5 +1,6 @@
 // Bộ đo bản thật web-os (B4; chép từ web-os-demo@6f544d4 kiem/do-demo.js rồi vá). Chạy trong trang: page.evaluate(`(${src})(${JSON.stringify(cu)})`).
 // CU = tên lỗ chạy biến thể CŨ (R6/K1, R7 ở lượt 4b; R8, R11 ở lượt 4c). CHE_DO 'het-phien' = chỉ đo màn Hết phiên đang hiện (chay-do.mjs gọi sau datVe(null)).
+// CHE_DO 'url' (Pha C, chay-do.mjs --url) = trang thật CHỈ ĐỌC: không datLai/ghi/Hỏi AI; phép cần ghi hay dữ liệu gieo ⇒ bỏ, tên vào kq.bo.
 // Trạng thái đọc qua API thật (trangThai/datLai), không còn window.DEMO. Phần do1 + đối chứng giao diện lấy từ ~/dev/learning-ban-mau/kiem/do-ban-mau.js (Khuôn Hub).
 async (CU = [], CHE_DO = null) => {
   const ngu = ms => new Promise(r => setTimeout(r, ms));
@@ -42,8 +43,9 @@ async (CU = [], CHE_DO = null) => {
     $$('script:not([src])').length && $$('script:not([src])').length + ' chỗ script nội tuyến'].filter(Boolean).join('; ');
 
   const kq = { cheDo: matchMedia('(prefers-color-scheme: dark)').matches ? 'tối' : 'sáng', iw: innerWidth, ih: innerHeight,
-    hong: [], doiChung: {}, khoiDuoiNep: [], cos: [] };
+    hong: [], doiChung: {}, khoiDuoiNep: [], cos: [], bo: [] };
   const hong = s => kq.hong.push(s);
+  const chiDoc = CHE_DO === 'url', boQua = s => kq.bo.push(s);
   const thu = async (ten, fn) => { try { await fn(); } catch (e) { hong(ten + ': ' + e.message); } };
 
   // Màn Hết phiên (vé đã bị bỏ ở cầu): chỉ đo giao diện của màn đó.
@@ -116,7 +118,9 @@ async (CU = [], CHE_DO = null) => {
   const dong1 = sel => { const r = $$(sel).find(hien); if (!r) throw Error('không có dòng ' + sel); return r; };
   const tim = async (k, id) => (await trangThai())[k].find(x => String(x.id) === String(id));
 
-  await thu('gieo bộ chuẩn', async () => { await datLai(); await toi('cos'); await toi('chu'); });
+  await thu('gieo bộ chuẩn', async () => { if (!chiDoc) await datLai(); await toi('cos'); await toi('chu'); });
+  // trang thật: phiên Access hợp lệ (GET /api/phien có email + het_luc)
+  if (chiDoc) await thu('phiên', async () => { const p = await lay('/api/phien'); if (!p.email || !p.het_luc) throw Error('/api/phien thiếu email/het_luc'); });
 
   // Đối chứng: phép đo phải bắt được bản cố ý hỏng
   await thu('đối chứng', async () => {
@@ -130,7 +134,8 @@ async (CU = [], CHE_DO = null) => {
     kq.doiChung.batChuNho = dc.nho.some(x => x.includes('Save'));
     kq.doiChung.batTuongPhan = dc.tuongPhan.some(x => x.includes('Save'));
     kq.doiChung.batTiengAnh = dc.anh.includes('Save');
-    const a = await trangThai(), b = JSON.parse(JSON.stringify(a));
+    // trang thật: kho có thể trống ⇒ phép so hai dòng đo trên trạng thái dựng sẵn
+    const a = chiDoc ? { viec: [{ id: 1, tieu_de: 'a' }], lich: [{ id: 1, gio: '09:00' }], de_xuat: [] } : await trangThai(), b = JSON.parse(JSON.stringify(a));
     if (b.viec[0]) b.viec[0].tieu_de += '!'; if (b.lich[0]) b.lich[0].gio = '23:59';
     kq.doiChung.batDoiHaiDong = doiDong(a, b) === 2;
   });
@@ -173,7 +178,7 @@ async (CU = [], CHE_DO = null) => {
     await toi('cos'); await toi('chu');
   });
 
-  const hoanTacVe = (ten, lam) => thu(ten, async () => {
+  const hoanTacVe = (ten, lam) => chiDoc ? boQua(ten + ' + Hoàn tác · cần ghi') : thu(ten, async () => {
     await veCos(); const s0 = await S(), d0 = dom();
     await lam();
     if (await S() === s0) throw Error('ghi không đổi dữ liệu');
@@ -232,7 +237,8 @@ async (CU = [], CHE_DO = null) => {
     for (const k of ['viec', 'lich']) { const [A, B] = bang(k); if (A.size !== B.size || [...A.keys()].some(id => !B.has(id))) throw Error('Áp dụng thêm/bớt dòng'); }
     for (const k of ['viec', 'lich']) { const [A, B] = bang(k); for (const [id, v] of A) if (B.get(id) !== v) throw Error('Áp dụng sai giá trị hạn'); }
   };
-  await thu('Hỏi AI', async () => {
+  if (chiDoc) boQua('R6/K1 Hỏi AI + Áp dụng · cần ghi + goiAI giả');
+  else await thu('Hỏi AI', async () => {
     await veCos(); const s0 = await trangThai(), j0 = DL(s0);
     await bam('hoi-ai');
     // dữ liệu trước, hộp sau: hộp tự ghi rồi tự đóng vẫn phải báo đúng lỗi ghi
@@ -264,7 +270,8 @@ async (CU = [], CHE_DO = null) => {
   // R11 (lượt 4c): mọi input[type=date] của form việc/lịch (thêm + sửa, mở form thật) có min="2000-01-01" và max="2100-12-31" (miền laNgay);
   // goiAI giả đổi sang hạn 2101-01-01 (móc __aiNgoaiMien của chay-do.mjs) ⇒ sau Hỏi AI hộp mở mà không có đề xuất mới, dữ liệu không đổi;
   // datLai() sau đó (phép sau không thấy đề xuất thừa). CŨ (CU R11): không kiểm.
-  if (!CU.includes('R11')) {
+  if (chiDoc) { boQua('R11 ô ngày · cần dòng việc/lịch gieo, nút ghi'); boQua('R11 đề xuất ngoài miền · cần ghi + goiAI giả'); }
+  else if (!CU.includes('R11')) {
     await thu('R11 ô ngày', async () => {
       await veCos();
       for (const [ten, mo] of [['thêm việc', () => bam('them-viec')], ['sửa việc', () => bam('sua', dong1('[data-viec]'))],
@@ -311,6 +318,7 @@ async (CU = [], CHE_DO = null) => {
       await bamHet(() => document, async () => { if (location.hash !== '#' + m) await toi(m); }, 'màn ' + m);
       if (await anhR7() !== a0) hong('màn chỉ xem đổi trạng thái: ' + m);
     }
+    if (chiDoc) { boQua('R7 nhóm Việc nhà · cần viec-bo.json mẫu'); return; }
     await toi('cos'); const g = () => document.querySelector('[data-man="cos"] [data-nhom="viec-nha"]');
     if (!hien(g())) { hong('thiếu nhóm Việc nhà'); return; }
     if (!$$('[data-viec-bo]', g()).some(hien)) { hong('thiếu dòng Việc nhà'); return; }   // chay-do dựng máy với viec-bo.json mẫu (vòng sửa 1)
@@ -333,7 +341,7 @@ async (CU = [], CHE_DO = null) => {
   });
   // Đối chứng của phần chức năng nằm ở kiem/doi-chung.mjs: bản cố ý hỏng thật, mỗi bản phải trượt đúng lý do.
 
-  await thu('trả bộ chuẩn', async () => { await datLai(); await toi('cos'); await toi('chu'); });
+  if (!chiDoc) await thu('trả bộ chuẩn', async () => { await datLai(); await toi('cos'); await toi('chu'); });
   window.fetch = fetchGoc;
   kq.dat = kq.hong.length === 0 && Object.keys(kq.doiChung).length === 6 && Object.values(kq.doiChung).every(Boolean);
   return kq;

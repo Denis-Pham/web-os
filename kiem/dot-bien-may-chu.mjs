@@ -23,6 +23,7 @@ const BAN_UI = 'web/ban.js', T_BAN_UI = ['test-web/ban-ui.test.mjs'], T_PHUC_HOI
 const VL = 'web/viec-lich.js', VG = 'web/viec-ghi.js', T_VL = ['test-web/viec-lich.test.mjs'];
 const HA = 'may-chu/hoi-ai.mjs', T_AI = ['test-may-chu/hoi-ai.test.mjs'];
 const DBT = 'kiem/do-ban-that.js', CHAY_DO = 'kiem/chay-do.mjs', T_DC = lo => [`test-web/doi-chung-${lo}.test.mjs`];
+const T_URL = ['test-web/chay-do-url.test.mjs'];   // Pha C Task 2: chay-do --url chỉ đọc
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -697,6 +698,15 @@ const NHOM = {
     ['do-r11-ham', DBT, " || i.getAttribute('max') !== '2100-12-31'", '', T_DC('r11')],
     ['do-r11-goi', DBT, "if (!CU.includes('R11')) {", 'if (false) {', T_DC('r11')],
     ['do-ban-phim-goi', CHAY_DO, 'ngoai.push(...await doBanPhim(page));   // bàn phím', 'ngoai.push(...[]);   // bàn phím', T_DC('ban-phim')],
+  ],
+  // Pha C Task 2: chay-do --url (trang thật, chỉ đọc) — chặn ghi · quyền tệp cookie · cấm --pha/--va cùng --url. Mỗi cổng hàm + chỗ gọi.
+  C2: [
+    ['url-chan-ghi-ham', CHAY_DO, "['GET', 'HEAD'].includes(q.method())", "['GET', 'HEAD', 'POST'].includes(q.method())", T_URL],
+    ['url-chan-ghi-goi', CHAY_DO, 'await chanGhi(ctx, goc, ghi);\n', '\n', T_URL],
+    ['url-cookie-quyen-ham', CHAY_DO, ' && (st.mode & 0o077) === 0;', ';', T_URL],
+    ['url-cookie-quyen-goi', CHAY_DO, '    if (!quyenCookie(st)) return null;\n', '', T_URL],
+    ['url-cam-pha-va-ham', CHAY_DO, 'url && (pha || va) ?', 'false ?', T_URL],
+    ['url-cam-pha-va-goi', CHAY_DO, ' if (loiCD) thoat(loiCD);', '', T_URL],
   ],
 };
 

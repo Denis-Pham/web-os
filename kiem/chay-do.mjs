@@ -1,4 +1,5 @@
 // node kiem/chay-do.mjs [--pha] [--cu R6,R7,…] [--co 375x812-light,…] [--va <tệp json>]   (đứng ở gốc repo)
+// node kiem/chay-do.mjs --url <gốc> [--cookie-tep <tệp>] [--co …]   (trang thật, CHỈ ĐỌC — Pha C, xem dưới)
 // Bộ đo bản thật (B4; chép từ web-os-demo@6f544d4 kiem/chay-do.cjs rồi vá): máy chủ thật + cầu vé 127.0.0.1 (dungMay, cos_ghi bật, goiAI GIẢ
 // tất định trong tiến trình — dời hạn việc mở đầu tiên + 1 ngày; KHÔNG ra mạng), bản web/ (hoặc bản cấy --va { 'tệp': [[cũ, mới], …] }) qua
 // đường duyệt A5 (datBan). Bộ dữ liệu chuẩn gieo qua POST /api/goi (datLai trong kiem/do-ban-that.js). 6 cỡ: 375×812, 768×1024, 1440×900 ×
@@ -14,7 +15,42 @@ import { goi } from '../test-may-chu/chung.mjs';
 
 const thamSo = ten => { const i = process.argv.indexOf(ten); return i < 0 ? null : process.argv[i + 1]; };
 const pha = process.argv.includes('--pha');
-const cu = (thamSo('--cu') ?? '').split(',').filter(Boolean);
+// Trang thật (Pha C, lễ W): --url <gốc> [--cookie-tep <tệp>] ⇒ CHỈ ĐỌC: không dựng máy, không datBan/datLai/goiAI; mọi yêu cầu tới gốc khác
+// GET/HEAD bị huỷ và ghi vào `ghi` (cỡ trượt); phép cần ghi hay dữ liệu gieo ⇒ bỏ, liệt kê ở `bo` (dòng JSON có thêm ghi, bo). Giá trị cookie
+// CF_Authorization KHÔNG in, KHÔNG vào JSON. Tham số sai ⇒ rc 2 trước khi mở trình duyệt.
+const thoat = s => { console.error(s); process.exit(2); };
+const docGoc = s => {   // chỉ gốc: https://host hay http://127.0.0.1:<cổng>; có đường khác /, truy vấn, #, tài khoản ⇒ null
+  let u; try { u = new URL(s); } catch { return null; }
+  const giao = u.protocol === 'https:' || (u.protocol === 'http:' && u.hostname === '127.0.0.1');
+  return giao && u.pathname === '/' && !u.search && !u.hash && !u.username && !u.password ? u.origin : null;
+};
+const loiCheDo = (url, pha, va) => url && (pha || va) ? '--url: trang thật chỉ đo, không cấy (không đi cùng --pha/--va)' : null;
+const quyenCookie = st => st.isFile() && st.uid === process.getuid() && (st.mode & 0o077) === 0;
+const docCookie = t => {   // O_NOFOLLOW: symlink ⇒ lỗi · O_NONBLOCK: FIFO không treo (fstat loại) · đọc qua fd đã kiểm (không đổi tệp giữa chừng)
+  let fd; try { fd = fs.openSync(t, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK); } catch { return null; }
+  try {
+    const st = fs.fstatSync(fd);
+    if (!quyenCookie(st)) return null;
+    const v = fs.readFileSync(fd, 'utf8').replace(/\r?\n$/, '');
+    return /^[\w.~+/=-]+$/.test(v) ? v : null;
+  } finally { fs.closeSync(fd); }
+};
+const coUrl = process.argv.includes('--url'), tepCookie = thamSo('--cookie-tep');
+const loiCD = loiCheDo(coUrl, pha, process.argv.includes('--va')); if (loiCD) thoat(loiCD);
+const goc = coUrl ? docGoc(thamSo('--url')) ?? thoat('--url: chỉ gốc https://<host> hay http://127.0.0.1:<cổng> (không đường, truy vấn, #)') : null;
+if (tepCookie !== null && !coUrl) thoat('--cookie-tep chỉ đi cùng --url');
+const cookie = tepCookie === null ? null : docCookie(tepCookie) ??
+  thoat('--cookie-tep: phải là tệp thường của chính uid này, không quyền nhóm/khác (0600), không symlink, một dòng giá trị cookie');
+// Mọi yêu cầu tới gốc khác GET/HEAD ⇒ huỷ + ghi vào `ghi`. Gắn SAU ganCanh (trangMoi) ⇒ chạy TRƯỚC nó (Playwright: route gắn sau thắng);
+// yêu cầu còn lại fallback về ganCanh (khác gốc ⇒ chặn + mang). Mức context: thấy cả yêu cầu do service worker gửi.
+const chanGhi = (ctx, goc, ghi) => ctx.route('**/*', r => {
+  const q = r.request(), u = new URL(q.url());
+  if (u.origin !== goc || ['GET', 'HEAD'].includes(q.method())) return r.fallback();
+  ghi.push(q.method() + ' ' + u.pathname);
+  return r.abort();
+});
+const BO_NGOAI = ['bàn phím hộp sửa việc · cần dòng việc gieo'], BO_HET = 'màn Hết phiên · cần cầu bỏ vé';
+const cu =(thamSo('--cu') ?? '').split(',').filter(Boolean);
 const va = thamSo('--va') ? JSON.parse(fs.readFileSync(thamSo('--va'), 'utf8')) : {};
 const CO = [[375, 812], [768, 1024], [1440, 900]].flatMap(([w, h]) => ['light', 'dark'].map(c => [w, h, c]));
 const tenCo = ([w, h, c]) => `${w}x${h}-${c}`;
@@ -39,10 +75,11 @@ const doTrang = async (page, cheDo = null) => {
   try { return await page.evaluate(`(${SRC})(${JSON.stringify(cu)}, ${JSON.stringify(cheDo)})`); }
   catch (e) { return { dat: false, hong: ['bộ đo nổ: ' + e.message.slice(0, 160)], doiChung: {}, khoiDuoiNep: [], cos: [] }; }
 };
-const dong = (co, kq, loi, mang) => {
-  const dat = kq.dat && !loi.length && !mang.length;
+const dong = (co, kq, loi, mang, ghi = null, bo = null) => {   // ghi/bo chỉ ở chế độ --url
+  const dat = kq.dat && !loi.length && !mang.length && !ghi?.length;
   console.log(JSON.stringify({ co, dat, hong: kq.hong, loi: loi.slice(0, 5), mang: mang.slice(0, 5),
-    doiChungTruot: Object.entries(kq.doiChung).filter(([, v]) => !v).map(([k]) => k), khoiDuoiNep: kq.khoiDuoiNep, cosDat: kq.cos.length }));
+    doiChungTruot: Object.entries(kq.doiChung).filter(([, v]) => !v).map(([k]) => k), khoiDuoiNep: kq.khoiDuoiNep, cosDat: kq.cos.length,
+    ...(ghi ? { ghi: ghi.slice(0, 5), bo } : {}) }));
   return dat;
 };
 
@@ -92,6 +129,7 @@ const doBanPhim = async page => {
       if (await ve(() => document.body.classList.contains('mo-menu'))) hong.push('Esc không đóng ngăn ☰');
       else if (!(await ve(() => document.activeElement === document.querySelector('[data-act="mo-menu"]')))) hong.push('focus không về chỗ cũ: Esc ở ngăn ☰');
     }
+    if (goc) return hong;   // trang thật: hộp sửa việc cần dòng việc gieo ⇒ bỏ (BO_NGOAI)
     const SUA = '[data-man="cos"] [data-viec] [data-act="sua"]';
     await ve(() => { location.hash = '#cos'; }); await page.locator(SUA).first().waitFor({ timeout: 5000 });
     await ve(() => document.getElementById('noi-dung').focus());
@@ -120,25 +158,35 @@ let sai = 0, xuat = null;
 try {
   // Vòng sửa 1: máy có thư mục xuất vào (trang-thai.json giờ dựng = lúc chạy + viec-bo.json mẫu, như man-chu.test) ⇒ 4 khối màn chủ từ tệp xuất
   // và nhóm Việc nhà được đo CÓ dữ liệu (không còn chỉ ở trạng thái «chưa nối»).
-  xuat = fs.mkdtempSync(path.join(process.env.WO_GOC || '/tmp', 'wo-x-'));
-  fs.writeFileSync(path.join(xuat, 'trang-thai.json'), JSON.stringify({ ...JSON.parse(fs.readFileSync(path.join(MAU, 'trang-thai.json'), 'utf8')), gio_dung: new Date().toISOString() }));
-  fs.copyFileSync(path.join(MAU, 'viec-bo.json'), path.join(xuat, 'viec-bo.json'));
-  m = await dungMay({ cosGhi: true, goiAI, xuatVao: xuat });
-  await datBan(m, { va });
+  if (!goc) {   // trang thật (--url): không dựng máy, không datBan
+    xuat = fs.mkdtempSync(path.join(process.env.WO_GOC || '/tmp', 'wo-x-'));
+    fs.writeFileSync(path.join(xuat, 'trang-thai.json'), JSON.stringify({ ...JSON.parse(fs.readFileSync(path.join(MAU, 'trang-thai.json'), 'utf8')), gio_dung: new Date().toISOString() }));
+    fs.copyFileSync(path.join(MAU, 'viec-bo.json'), path.join(xuat, 'viec-bo.json'));
+    m = await dungMay({ cosGhi: true, goiAI, xuatVao: xuat });
+    await datBan(m, { va });
+  }
+  const dau = goc ?? m.url;
   for (const [i, [width, height, colorScheme]] of cacCo.entries()) {
-    const { ctx, page, loi, mang } = await trangMoi(trinh, m.url, { viewport: { width, height }, colorScheme });
+    const { ctx, page, loi, mang } = await trangMoi(trinh, dau, { viewport: { width, height }, colorScheme });
+    const ghi = goc ? [] : null;
     try {
-      await page.exposeFunction('__aiNgoaiMien', b => { aiNgoaiMien = b === true; });
-      await page.goto(m.url + '/#chu');
+      if (goc) {
+        await chanGhi(ctx, goc, ghi);
+        // url ⇒ Playwright tự đặt domain/path và secure khi https · lỗi addCookies có thể mang cookie ⇒ ném lỗi đã làm sạch
+        if (cookie) try { await ctx.addCookies([{ name: 'CF_Authorization', value: cookie, url: goc + '/', httpOnly: true, sameSite: 'Lax' }]); }
+        catch { throw new Error('nạp cookie CF_Authorization vào context hỏng'); }
+      } else await page.exposeFunction('__aiNgoaiMien', b => { aiNgoaiMien = b === true; });
+      await page.goto(dau + '/#chu');
       await page.locator('html[data-san="1"]').waitFor({ timeout: 10000 });
       // CSSOM (không phải <style>): CSP chặn thẻ style nội tuyến, không chặn bảng kiểu dựng bằng mã.
       if (pha) await page.evaluate(css => { const s = new CSSStyleSheet(); s.replaceSync(css); document.adoptedStyleSheets = [...document.adoptedStyleSheets, s]; }, PHA);
-      const kq = await doTrang(page), ngoai = [];
+      const kq = await doTrang(page, goc ? 'url' : null), ngoai = [];
       ngoai.push(...await doLoiVao(page));   // R8
       ngoai.push(...await doBanPhim(page));   // bàn phím
       kq.hong.push(...ngoai); kq.dat &&= !ngoai.length;
-      if (!dong(tenCo([width, height, colorScheme]), kq, loi, mang)) sai++;
-      if (i < cacCo.length - 1) continue;
+      const cuoi = i === cacCo.length - 1, bo = goc ? [...(kq.bo ?? []), ...BO_NGOAI, ...(cuoi ? [BO_HET] : [])] : null;
+      if (!dong(tenCo([width, height, colorScheme]), kq, loi, mang, ghi, bo)) sai++;
+      if (!cuoi || goc) continue;
       // Màn Hết phiên: cầu bỏ vé ⇒ 401 ở lần gọi API kế ⇒ trang tự chuyển màn. Lỗi «401» của trình duyệt ở bước này là chủ ý.
       const nL = loi.length, nM = mang.length;
       m.cau.datVe(null);
@@ -146,7 +194,7 @@ try {
       await page.locator(HET).waitFor({ timeout: 5000 }).catch(() => {});
       const loiHet = loi.slice(nL).filter(x => !x.includes('status of 401'));
       if (!dong(tenCo([width, height, colorScheme]) + '-het-phien', await doTrang(page, 'het-phien'), loiHet, mang.slice(nM))) sai++;
-    } finally { aiNgoaiMien = false; m.cau.datVe(); await ctx.close(); }
+    } finally { aiNgoaiMien = false; m?.cau.datVe(); await ctx.close(); }
   }
 } catch (e) { console.error(e); sai = -1; }
 finally {
