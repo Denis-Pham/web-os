@@ -51,6 +51,7 @@ function batDau() {
   dangKyHanhDong('mo-menu', () => datMenu(true));
   dangKyHanhDong('dong-menu', () => datMenu(false));
   dangKyHanhDong('dang-nhap-lai', () => location.reload());
+  dangKyHanhDong('thu-lai', () => location.reload());
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && menuMo()) datMenu(false); });
   $('danh-sach-mach').addEventListener('click', e => { if (menuMo() && e.target.closest('a[href^="#"]')) datMenu(false, false); });
   window.addEventListener('hashchange', veMan);

@@ -1,16 +1,27 @@
 // Phiên (B1): GET /api/phien ⇒ het_luc ⇒ hẹn giờ xoá dữ liệu khỏi DOM + bộ nhớ đúng lúc đó (không cần mạng). Trang treo nền / bfcache
 // hiện lại (pageshow, visibilitychange) ⇒ kiểm lại ngay. 401/403/302 ở bất cứ /api/* nào (api.js datXuLy) ⇒ cùng một đường xoaDuLieu
 // ⇒ màn Hết phiên; sau đó định tuyến không vẽ màn nào khác (daHetPhien). Mỗi màn đăng ký don() qua dangKyDon để xoá đệm của nó.
+// Bản: SHA_TRANG đọc từ /ban.json lúc khởi động ⇒ đăng ký sw.js?ban=<SHA>; kiểm lại thấy /ban.json lệch ⇒ tải lại (lật bản).
 import { el } from './dom.js';
 import { goiApi, datXuLy, LoiPhien, LoiMang } from './api.js';
 import { bao, anHoanTac } from './giao-dien.js';
 
 const $ = id => document.getElementById(id);
 const DON = new Set();
-let het = null, hen = 0, daHet = false;
+let het = null, hen = 0, daHet = false, SHA_TRANG = null;
 
 export const dangKyDon = f => DON.add(f);
 export const daHetPhien = () => daHet;
+export const soSha = (cu, moi) => cu !== null && moi !== null && cu !== moi;
+
+// /ban.json do máy chủ tự viết vào bản đã duyệt. Có query ⇒ SW không chặn. Lỗi mạng / 401 / thân hỏng ⇒ null (không so, không đăng ký SW).
+async function docSha() {
+  try {
+    const r = await fetch('/ban.json?t=' + Date.now(), { cache: 'no-store', redirect: 'manual', credentials: 'same-origin' });
+    const o = r.ok ? await r.json() : null;
+    return typeof o?.ban === 'string' ? o.ban : null;
+  } catch { return null; }
+}
 
 // Mili giây còn lại tới het_luc (thuần). het_luc hỏng ⇒ 0: xoá ngay (hỏng thì đóng).
 export function hetSau(hetLuc, bayGio) {
@@ -31,15 +42,27 @@ async function docPhien() {
 }
 
 // (1) đã quá het_luc ⇒ xoá NGAY, không cần mạng · (2) hỏi lại /api/phien ⇒ hẹn lại; LoiPhien đã xoá qua datXuLy;
-// LoiMang / lỗi máy chủ ⇒ giữ, hẹn giờ het_luc cũ vẫn canh.
+// LoiMang / lỗi máy chủ ⇒ giữ, hẹn giờ het_luc cũ vẫn canh · (3) phiên còn ⇒ /ban.json lệch SHA_TRANG ⇒ tải lại sang bản mới.
 export async function kiemLai() {
   if (daHet) return;
   if (het !== null && hetSau(het, Date.now()) === 0) { xoaDuLieu(); return; }
-  try { await docPhien(); } catch { /* xem chú thích trên */ }
+  try { await docPhien(); } catch { return; /* xem chú thích trên */ }
+  const moi = await docSha();
+  if (soSha(SHA_TRANG, moi)) location.reload();
+}
+
+// Mất mạng khi chưa kiểm được phiên (cả lúc mở bằng vỏ đệm của SW): màn riêng, không dữ liệu; «Thử lại» = tải lại trang.
+function veMatKetNoi() {
+  $('noi-dung').replaceChildren(el('section', { 'data-man': 'mat-ket-noi', 'aria-label': 'Mất kết nối' },
+    el('div', { class: 'the het-phien' }, el('h1', {}, 'Mất kết nối'),
+      el('p', {}, 'Chưa kiểm được phiên đăng nhập nên trang chưa hiện dữ liệu. Có mạng lại thì bấm Thử lại.'),
+      el('button', { type: 'button', class: 'nut-chinh', 'data-act': 'thu-lai' }, 'Thử lại'))));
+  $('ten-man').textContent = 'Mất kết nối';
+  bao('Mất kết nối — chưa kiểm được phiên.');
 }
 
 function baoLoiPhien(e) {
-  if (e instanceof LoiMang) bao('Mất kết nối — chưa kiểm được phiên.');
+  if (e instanceof LoiMang) veMatKetNoi();
   else if (!(e instanceof LoiPhien)) bao('Máy chủ báo lỗi khi kiểm phiên: ' + (e?.loi ?? e?.message ?? 'không rõ') + '.');
 }
 
@@ -75,5 +98,8 @@ export async function batDau() {
   datXuLy({ hetPhien: xoaDuLieu });
   window.addEventListener('pageshow', kiemLai);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kiemLai(); });
+  SHA_TRANG = await docSha();
+  // SW chỉ là vỏ ngoại tuyến: đăng ký hỏng (không HTTPS, cài lỗi) không chặn trang — không dữ liệu nào phụ thuộc SW.
+  if (SHA_TRANG !== null && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js?ban=' + SHA_TRANG, { scope: '/', updateViaCache: 'none' }).catch(() => {});
   try { await docPhien(); return true; } catch (e) { baoLoiPhien(e); return false; }
 }

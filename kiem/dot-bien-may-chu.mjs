@@ -18,6 +18,7 @@ const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-ch
 const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs', KER = 'may-chu/kernel.mjs', BAN = 'may-chu/ban.mjs';
 const DOM = 'web/dom.js', MAN_CHU = 'web/man-chu.js', T_KHUNG = ['test-web/khung.test.mjs'], T_MAN_CHU = ['test-web/man-chu.test.mjs'], T_TINH = ['test-web/tinh.test.mjs'];
 const PHIEN = 'web/phien.js', API_WEB = 'web/api.js', KHUNG = 'web/khung.js', T_PHIEN = ['test-web/phien.test.mjs'];
+const SW = 'web/sw.js', T_SW = ['test-web/sw.test.mjs'];
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -607,6 +608,17 @@ const NHOM = {
     ['man-chu-het-phien-goi', MAN_CHU, '    if (daHetPhien()) return;   // phản hồi về sau het_luc (đã don()) ⇒ không đưa lại vào đệm\n', '', T_PHIEN],
     ['man-chu-don-ham', MAN_CHU, 'don() { duLieu = null; }', 'don() {}', T_PHIEN],
     ['khung-dang-ky-don-goi', KHUNG, '  for (const m of SO_MAN.values()) dangKyDon(() => m.don());\n', '', T_PHIEN],
+    // B1 lượt 1c: service worker — danh sách trắng (hàm + chỗ gọi), vỏ khi 401/403, dọn cache SHA khác (hàm + chỗ gọi), skipWaiting, claim;
+    // lật bản: so SHA (hàm + chỗ gọi tải lại)
+    ['sw-la-vo-ham', SW, "const laVo = u => u.origin === self.location.origin && u.search === '' && VO.includes(u.pathname);", 'const laVo = u => u.origin === self.location.origin;', T_SW],
+    ['sw-la-vo-goi', SW, "if (e.request.method !== 'GET' || !laVo(u)) return;", "if (e.request.method !== 'GET') return;", T_SW],
+    ['sw-401-vo', SW, '  if (r.status === 401 || r.status === 403) return (await caches.match(u.pathname, { cacheName: TEN })) || r;\n', '', T_SW],
+    ['sw-don-cache-ham', SW, 'async function donCache() { for (const k of await caches.keys()) if (k !== TEN) await caches.delete(k); }', 'async function donCache() {}', T_SW],
+    ['sw-don-cache-goi', SW, 'donCache().then(() => self.clients.claim())', 'self.clients.claim()', T_SW],
+    ['sw-skip-waiting', SW, 'self.skipWaiting(); ', '', T_SW],
+    ['sw-claim', SW, '.then(() => self.clients.claim())', '', T_SW],
+    ['phien-so-sha-ham', PHIEN, 'export const soSha = (cu, moi) => cu !== null && moi !== null && cu !== moi;', 'export const soSha = () => false;', T_SW],
+    ['phien-so-sha-goi', PHIEN, '  if (soSha(SHA_TRANG, moi)) location.reload();\n', '', T_SW],
   ],
 };
 

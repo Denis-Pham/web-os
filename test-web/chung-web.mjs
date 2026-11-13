@@ -11,12 +11,18 @@ import { fileURLToPath } from 'node:url';
 import duong from '../kiem/duong-pw.cjs';
 import { moiTruong, goi, VE, DAU_GHI } from '../test-may-chu/chung.mjs';
 
+// Yêu cầu do service worker gửi (sw.js, cache.addAll, fetch trong SW) chỉ qua context.route + chịu setOffline khi bật cờ này (probe 13/11,
+// playwright-core 1.55: tắt ⇒ ctx.route không thấy, setOffline không chặn SW). Đặt TRƯỚC khi nạp playwright-core.
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
 const { chromium } = createRequire(import.meta.url)(duong.PW);
 export const WEB = fileURLToPath(new URL('../web/', import.meta.url));
 // Ca đối chứng (cấy qua datBan va) chỉ chạy khi bật. Runner đột biến đặt WEB_DOI_CHUNG=0: đột biến xoá dòng neo thì cấy không khớp ⇒ ném ⇒ «DIỆT» giả.
 export const DOI_CHUNG = process.env.WEB_DOI_CHUNG !== '0';
 
-export const moTrinh = () => chromium.launch({ executablePath: duong.CHROME, headless: true, args: ['--disable-background-networking', '--disable-component-update', '--no-first-run'] });
+const CO = ['--disable-background-networking', '--disable-component-update', '--no-first-run'];
+export const moTrinh = () => chromium.launch({ executablePath: duong.CHROME, headless: true, args: CO });
+// Context bền (hồ sơ thật, KHÔNG ẩn danh): Page.getInstallabilityErrors trong newContext luôn báo «in-incognito» (probe 13/11).
+export const moTrinhBen = (thuMuc, tuy = {}) => chromium.launchPersistentContext(thuMuc, { executablePath: duong.CHROME, headless: true, args: CO, ...tuy });
 
 // Cầu: bỏ vé khách gửi, chèn vé hiện tại, chuyển nguyên method/đường/header/thân sang web.sock; trả nguyên mã/header/thân.
 // datVe() ⇒ VE · datVe(null) ⇒ không vé (401) · datVe('chuyen') ⇒ giả lề Cloudflare Access: 302 sang /cdn-cgi/access/login, đường đó 200 «đăng nhập».
@@ -89,10 +95,11 @@ export async function datBan(m, { va = {} } = {}) {
   return sha;
 }
 
-// Mỗi ca một context (SW/cache sạch). Chặn + ghi mọi yêu cầu khác gốc cầu nối (vào `mang` và `loi`); pageerror + console.error vào `loi`.
-export async function trangMoi(trinh, url, { viewport = { width: 1440, height: 900 }, colorScheme = 'light' } = {}) {
-  const ctx = await trinh.newContext({ viewport, colorScheme }), page = await ctx.newPage(), loi = [], mang = [], goc = new URL(url).origin;
-  await page.route('**/*', r => {
+// Chặn + ghi mọi yêu cầu khác gốc cầu nối (vào `mang` và `loi`) ở mức CONTEXT (gồm yêu cầu do service worker gửi — page.route không
+// thấy chúng); pageerror + console.error của trang vào `loi`.
+export async function ganCanh(ctx, page, url) {
+  const loi = [], mang = [], goc = new URL(url).origin;
+  await ctx.route('**/*', r => {
     if (new URL(r.request().url()).origin === goc) return r.continue();
     mang.push(r.request().url());
     loi.push('chặn mạng: ' + r.request().url());
@@ -101,6 +108,12 @@ export async function trangMoi(trinh, url, { viewport = { width: 1440, height: 9
   page.on('pageerror', e => loi.push('pageerror: ' + e.message));
   page.on('console', x => { if (x.type() === 'error') loi.push('console: ' + x.text()); });
   return { ctx, page, loi, mang };
+}
+
+// Mỗi ca một context (SW/cache sạch).
+export async function trangMoi(trinh, url, { viewport = { width: 1440, height: 900 }, colorScheme = 'light' } = {}) {
+  const ctx = await trinh.newContext({ viewport, colorScheme });
+  return ganCanh(ctx, await ctx.newPage(), url);
 }
 
 // Gieo dữ liệu kho: POST /api/goi qua socket (vé VE, DAU_GHI, khoa_lap ngẫu nhiên).
