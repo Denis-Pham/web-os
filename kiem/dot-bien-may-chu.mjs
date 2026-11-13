@@ -648,7 +648,8 @@ const NHOM = {
     ['focus-ham', 'web/giao-dien.js', 'function traFocus() { traVe?.focus(); traVe = null; }', 'function traFocus() { traVe = null; }', T_VL],
     ['ngay-mien-ham', 'web/giao-dien.js', ', min: MIEN_NGAY.min, max: MIEN_NGAY.max', '', T_VL],
     ['ngay-mien-goi', VG, "o('Hạn', oNgay('han', v?.han?.slice(0, 10))),", "o('Hạn', el('input', { type: 'date', name: 'han' })),", T_VL],
-    ['viec-don-goi', VL, 'don() { LICH_SU.length = 0;', 'donX() { LICH_SU.length = 0;', T_VL],
+    ['viec-don-goi', VL, 'don() { donGhi(); dem = null;', 'donX() { donGhi(); dem = null;', T_VL],
+    ['don-ghi-goi', VL, 'don() { donGhi(); dem = null;', 'don() { dem = null;', T_VL],
     ['cos-ghi-goi', VL, "datGhi((await goiApi('/api/phien')).cos_ghi === true)", 'datGhi(true)', T_VL],
   ],
 };

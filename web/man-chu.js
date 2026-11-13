@@ -17,7 +17,7 @@ const BANG = { viec: 'việc', lich: 'lịch', tien_do: 'tiến độ', de_xuat:
 let duLieu = null;
 
 const chuaNoi = k => !k || k.trang_thai === 'chua_noi' || k.trang_thai === 'thieu';
-function nhan(k) {
+export function nhan(k) {
   const n = NHAN[k?.trang_thai];
   if (!n) return null;
   return (k.trang_thai === 'cu' || k.trang_thai === 'hong') && k.gio_dung ? `${n}, dựng lúc ${gioVN(k.gio_dung)}` : n;
@@ -26,7 +26,7 @@ const gio = s => (typeof s === 'string' && s.length > 10 ? s.slice(11, 16) : 'C�
 const ds = (mang, veMuc, rong) => (mang.length ? el('ul', { class: 'ds' }, ...mang.map(veMuc)) : el('p', { class: 'rong' }, rong));
 
 // Phần từ một khối tệp: nhãn (nếu không tốt) + danh sách (nếu có dữ liệu, kể cả bản tốt cuối khi hỏng).
-function phanTep(k, veMuc) {
+export function phanTep(k, veMuc) {
   const n = nhan(k);
   return [n && el('p', { class: k.trang_thai === 'hong' ? 'nhan-khoi nhan-loi' : 'nhan-khoi' }, n),
     Array.isArray(k?.du_lieu) && ds(k.du_lieu, veMuc, 'Chưa có mục nào.')];

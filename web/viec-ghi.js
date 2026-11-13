@@ -7,8 +7,10 @@ import { bao, dangKyHanhDong, dongHop, hienHoanTac, moHop, oNgay } from './giao-
 export const LICH_SU = [];
 export let ghiDuoc = false;
 export const datGhi = v => { ghiDuoc = v; };
-let taiLai = async () => {}, tim = () => null, dangGui = false, khoa = null, dauOps = null, dauHop = null;
+let taiLai = async () => {}, tim = () => null, dangGui = false, khoa = null, dauOps = null, dauHop = null, chup = null;
 export const noiGhi = (tai, timDong) => { taiLai = tai; tim = timDong; };
+// Rời màn (het_luc): xoá mọi biến giữ dữ liệu người dùng gõ/đọc (bản chụp hộp, gói ops của lần ghi lỗi, khoá lặp, Hoàn tác).
+export function donGhi() { LICH_SU.length = 0; dauOps = khoa = dauHop = chup = null; ghiDuoc = dangGui = false; }
 
 const NUT_GHI = '[data-act="them-viec"],[data-act="them-lich"],[data-act="sua"],[data-act="xoa"],[data-act="xong"],[data-act="mo-lai"]';
 const TEN_TRUONG = { tieu_de: 'Tên', han: 'Hạn', ghi_chu: 'Ghi chú', bat_dau: 'Ngày giờ', dia_diem: 'Địa điểm', ca_ngay: 'Cả ngày' };
@@ -111,7 +113,7 @@ async function luu(n, e) {
     : { tieu_de: g('tieu_de') ?? '', bat_dau: g('ngay') ? g('ngay') + (g('gio') ? 'T' + g('gio') : '') : '', ca_ngay: g('gio') ? 0 : 1, dia_diem: g('dia_diem') };
   let op;
   if (id) {
-    const c = tim(bang, id);
+    const c = chup?.bang === bang && chup.id === id ? chup.c : null;   // dòng LÚC MỞ hộp, không phải dòng mới đọc: 409 thật ⇒ Lưu lần hai vẫn 409
     if (!c) return;
     const cu = bang === 'viec' ? { tieu_de: c.tieu_de, han: c.han?.slice(0, 10) ?? null, ghi_chu: c.ghi_chu ?? null }
       : { tieu_de: c.tieu_de, bat_dau: c.bat_dau.slice(0, 16), ca_ngay: c.ca_ngay, dia_diem: c.dia_diem ?? null };
@@ -127,7 +129,7 @@ async function luu(n, e) {
 async function tacDong(n) {
   const d = dongCua(n), c = d && tim(d.bang, d.id), act = n.dataset.act;
   if (!c) return;
-  if (act === 'sua') { dauHop = dauVet(n); if (d.bang === 'viec') hopViec(c); else hopLich(c); return; }
+  if (act === 'sua') { dauHop = dauVet(n); chup = { bang: d.bang, id: d.id, c: { ...c } }; if (d.bang === 'viec') hopViec(c); else hopLich(c); return; }
   const loai = act === 'xoa' ? 'xoa' : act === 'xong' ? 'xong' : 'mo_lai', v = dauVet(n);
   if (await guiGoi([{ loai, bang: d.bang, id: d.id, phien_ban: c.phien_ban }], `Đã ${{ xoa: 'xoá', xong: 'xong', mo_lai: 'mở lại' }[loai]} ${TEN_BANG[d.bang]} «${c.tieu_de.slice(0, 40)}»`)) datFocus(v);
 }

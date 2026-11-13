@@ -5,8 +5,9 @@ import { el, ngayVN } from './dom.js';
 import { goiApi, LoiChiDoc, LoiMang, LoiPhien } from './api.js';
 import { anHoanTac, bao } from './giao-dien.js';
 import { daHetPhien } from './phien.js';
+import { phanTep } from './man-chu.js';
 import { chuaNoi, lienKet, lienKetNgoai, urlNgoai } from './mach.js';
-import { datGhi, ghiDuoc, LICH_SU, noiGhi } from './viec-ghi.js';
+import { datGhi, donGhi, ghiDuoc, noiGhi } from './viec-ghi.js';
 
 const SO = [['qua_han', 'Quá hạn'], ['han_hom_nay', 'Hạn hôm nay'], ['lich_hom_nay', 'Lịch hôm nay'], ['de_xuat_cho', 'Đề xuất chờ']];
 let goc = null, dem = null;
@@ -32,9 +33,7 @@ const veLich = l => el('li', { 'data-lich': l.id },
 const ds = (mang, ve, rong) => (mang.length ? el('ul', { class: 'ds ds-dong' }, ...mang.map(ve)) : el('p', { class: 'rong' }, rong));
 
 function veViecNha(bo, hub) {
-  const nhan = { cu: 'cũ', hong: 'hỏng' }[bo?.trang_thai];
-  const noi = !bo || bo.trang_thai === 'chua_noi' || bo.trang_thai === 'thieu' ? chuaNoi() : [nhan && el('p', { class: 'nhan-khoi' }, nhan),
-    ds(Array.isArray(bo.du_lieu) ? bo.du_lieu : [], x => el('li', { 'data-viec-bo': x.id }, el('strong', {}, x.ten), x.han && el('time', {}, 'Hạn ' + gioHan(x.han)), x.lap && el('small', {}, x.lap)), 'Chưa có việc nhà nào.')];
+  const noi = !bo || bo.trang_thai === 'chua_noi' || bo.trang_thai === 'thieu' ? chuaNoi() : phanTep(bo, x => el('li', { 'data-viec-bo': x.id }, el('strong', {}, x.ten), x.han && el('time', {}, 'Hạn ' + gioHan(x.han)), x.lap && el('small', {}, x.lap)));
   return el('div', { class: 'the', 'data-nhom': 'viec-nha' }, el('h2', {}, 'Việc nhà (chỉ đọc)'), ...[noi].flat(),
     hub ? lienKetNgoai(hub, 'Mở ở Hub') : chuaNoi('Mở ở Hub: chưa nối'));
 }
@@ -84,5 +83,5 @@ export const MAN = {
     try { datGhi((await goiApi('/api/phien')).cos_ghi === true); } catch (e) { loiNap(e); return; }
     await nap();
   },
-  don() { LICH_SU.length = 0; dem = null; goc = null; anHoanTac(); },
+  don() { donGhi(); dem = null; goc = null; anHoanTac(); },
 };

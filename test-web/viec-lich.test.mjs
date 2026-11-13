@@ -317,7 +317,7 @@ test('XSS (R10): tieu_de mã HTML ⇒ nguyên văn, không img trong màn, docum
 });
 
 // Heap (R10): ma_hoan (chuỗi phẳng từ JSON.parse của /api/goi) nằm trong LICH_SU ⇒ có trước het_luc, hết sau het_luc
-const NEO_DON = 'don() { LICH_SU.length = 0;';
+const NEO_DON = 'don() { donGhi();';
 async function doHeap(mm) {
   mm.cau.datVe(ve({ exp: giayNay() + 120 }));
   const t = await trangMoi(trinh, mm.url);
@@ -342,8 +342,64 @@ test('Heap (R10): ma_hoan trong LICH_SU có trước het_luc, không còn sau; �
   const mm = await maySach();
   assert.deepEqual(await doHeap(mm), { truoc: true, het: 1, sau: false });
   if (DOI_CHUNG) {
-    await datBan(mm, { va: { 'viec-lich.js': [[NEO_DON, 'donX() { LICH_SU.length = 0;']] } });
+    await datBan(mm, { va: { 'viec-lich.js': [[NEO_DON, 'donX() { donGhi();']] } });
     const cay = await doHeap(mm).catch(e => ({ loi: e.message }));
     assert.ok(cay.loi || cay.sau, 'cấy don() không thật mà bí mật vẫn hết khỏi heap: ' + JSON.stringify(cay));
   }
+});
+
+// ===== Vòng sửa 1 =====
+test('B2-S1 hộp sửa mở, máy khác đổi hạn ⇒ Lưu = 409 «em tải lại» ⇒ Lưu lần hai KHÔNG lùi hạn của máy kia', async () => {
+  const mm = await maySach();
+  const mot = async id => (await goi(mm.may, '/api/viec')).json.viec.find(x => id ? x.id === id : x.tieu_de === 'Việc một');
+  await moCos(async page => {
+    await bam(page, 'sua', dong(page, 'viec', 'Việc một'));
+    await dien(page, 'tieu_de', 'Việc một sửa');
+    const x = await mot(), hanMay = ngayVn(20);
+    assert.notEqual(x.han.slice(0, 10), hanMay);
+    await gieo(mm, [{ loai: 'sua', bang: 'viec', id: x.id, phien_ban: x.phien_ban, truong: { han: hanMay } }]);
+    await bam(page, 'luu', page.locator('#hop'));
+    await page.locator('#tin', { hasText: 'Dòng này vừa đổi ở chỗ khác — em tải lại.' }).waitFor();
+    await dong(page, 'viec', 'Hạn ' + hanMay.slice(8, 10)).first().waitFor().catch(() => {});   // taiLai đã làm mới đệm
+    await bam(page, 'luu', page.locator('#hop'));
+    await page.waitForTimeout(500);
+    const sau = await mot(x.id);
+    assert.equal(sau.han.slice(0, 10), hanMay, 'Lưu lần hai đã lùi thay đổi của máy kia');
+    assert.equal(sau.tieu_de, 'Việc một', 'Lưu lần hai đã ghi đè dù dòng đổi');
+  }, mm);
+});
+
+test('B2-S2 heap: tieu_de của lần ghi THẤT BẠI (offline) có trước het_luc, không còn sau', async () => {
+  const mm = await maySach(), bi = 'BiMat' + crypto.randomBytes(6).toString('hex');
+  mm.cau.datVe(ve({ exp: giayNay() + 120 }));
+  const { ctx, page } = await trangMoi(trinh, mm.url);
+  try {
+    await page.clock.install();
+    await page.goto(mm.url + '/#cos');
+    await page.locator('[data-viec]').first().waitFor({ timeout: 10_000 });
+    await bam(page, 'them-viec'); await dien(page, 'tieu_de', bi);
+    await ctx.setOffline(true);
+    await bam(page, 'luu', page.locator('#hop'));
+    await page.locator('#tin', { hasText: 'Mất kết nối' }).waitFor();
+    const truoc = await heapCo(page, bi);
+    await page.clock.fastForward(130_000);
+    await page.locator('#noi-dung > section[data-man="het-phien"]').waitFor({ timeout: 3000 }).catch(() => {});
+    assert.deepEqual({ truoc, het: await page.locator('#noi-dung > section[data-man="het-phien"]').count(), sau: await heapCo(page, bi) }, { truoc: true, het: 1, sau: false });
+  } finally { mm.cau.datVe(); await ctx.close(); }
+});
+
+test('B2-S3 Việc nhà: tệp cũ ⇒ «cũ, dựng lúc»; tệp hỏng không bản tốt ⇒ chỉ nhãn «hỏng» (lớp nhan-loi), không «Chưa có việc nhà nào.»', async () => {
+  const nha = await dungMay(); mayDong.push(nha);
+  const vao = path.join(nha.mt.tam, 'xuat-vao'), tep = path.join(vao, 'viec-bo.json');
+  fs.mkdirSync(vao);
+  fs.writeFileSync(tep, JSON.stringify(BO(new Date(Date.now() - 4 * 3600e3).toISOString())));
+  const doNha = mm => moCos(async page => {
+    const k = page.locator('[data-nhom="viec-nha"]');
+    return { cu: await k.locator('.nhan-khoi', { hasText: /^cũ, dựng lúc \d\d:\d\d \d\d\/\d\d$/ }).count(), hong: await k.locator('.nhan-khoi.nhan-loi', { hasText: /^hỏng$/ }).count(),
+      rong: await k.locator('text=Chưa có việc nhà nào.').count(), muc: await k.locator('[data-viec-bo]').count() };
+  }, mm);
+  assert.deepEqual(await doNha(await maySach({ xuatVao: vao })), { cu: 1, hong: 0, rong: 0, muc: 2 });
+  const vao2 = path.join(nha.mt.tam, 'xuat-vao2');
+  fs.mkdirSync(vao2); fs.writeFileSync(path.join(vao2, 'viec-bo.json'), '{hỏng');
+  assert.deepEqual(await doNha(await maySach({ xuatVao: vao2 })), { cu: 0, hong: 1, rong: 0, muc: 0 });
 });
