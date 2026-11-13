@@ -261,6 +261,34 @@ async (CU = [], CHE_DO = null) => {
     await bam('hoan-tac'); if (DL(await trangThai()) !== DL(s0b)) throw Error('Hoàn tác sau Áp dụng không về y trước');
     await dongHop(hop()); kq.cos.push('Hỏi AI');
   });
+  // R11 (lượt 4c): mọi input[type=date] của form việc/lịch (thêm + sửa, mở form thật) có min="2000-01-01" và max="2100-12-31" (miền laNgay);
+  // goiAI giả đổi sang hạn 2101-01-01 (móc __aiNgoaiMien của chay-do.mjs) ⇒ sau Hỏi AI hộp mở mà không có đề xuất mới, dữ liệu không đổi;
+  // datLai() sau đó (phép sau không thấy đề xuất thừa). CŨ (CU R11): không kiểm.
+  if (!CU.includes('R11')) {
+    await thu('R11 ô ngày', async () => {
+      await veCos();
+      for (const [ten, mo] of [['thêm việc', () => bam('them-viec')], ['sửa việc', () => bam('sua', dong1('[data-viec]'))],
+        ['thêm lịch', () => bam('them-lich')], ['sửa lịch', () => bam('sua', dong1('[data-lich]'))]]) {
+        await mo(); const h = hop(); if (!h) throw Error('form ' + ten + ' không mở');
+        const o = $$('input[type="date"]', h); if (!o.length) throw Error('form ' + ten + ' không có ô ngày');
+        for (const i of o) if (i.getAttribute('min') !== '2000-01-01' || i.getAttribute('max') !== '2100-12-31')
+          hong(`ô ngày thiếu min/max: form ${ten}, ô ${i.name} (min=${i.getAttribute('min')}, max=${i.getAttribute('max')})`);
+        await bam('huy', h); await choHieuUng(); if (hop()) throw Error('form ' + ten + ': Huỷ không đóng hộp');
+      }
+    });
+    await thu('R11 đề xuất ngoài miền', async () => {
+      if (typeof window.__aiNgoaiMien !== 'function') throw Error('thiếu móc __aiNgoaiMien của chay-do.mjs');
+      await veCos(); const s0 = await trangThai(), id0 = JSON.stringify(s0.de_xuat.map(d => d.id));
+      await window.__aiNgoaiMien(true);
+      try {
+        try { await bam('hoi-ai'); } finally { await window.__aiNgoaiMien(false); }
+        const h = hop(); if (!h) throw Error('không mở hộp');
+        const s1 = await trangThai();
+        if (JSON.stringify(s1.de_xuat.map(d => d.id)) !== id0 || $$('[data-de-xuat]', h).filter(hien).length !== s0.de_xuat.length || DL(s1) !== DL(s0))
+          throw Error('đề xuất ngoài miền hiện ra');
+      } finally { await dongHop(hop()); await datLai(); }
+    });
+  }
   // R7 (lượt 4b): màn chỉ xem = chu + 10 màn mach.js + nhóm Việc nhà. Bấm MỌI button, [role=button], input hiện (trừ ☰, Hỏi AI, Hoàn tác,
   // liên kết thanh trái), đóng hộp sau mỗi cú bấm, rồi so việc + lịch + nhật ký trước/sau. Đề xuất chờ không so (ruling 4b, như Hỏi AI).
   // /api/nhat-ky trả ≤ 200 dòng ⇒ «số nhật ký» = số dòng kèm id mới nhất (đếm trần 200 không đổi khi thêm dòng).

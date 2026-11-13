@@ -34,6 +34,16 @@ const CAY = [ // [tên, tệp, chuỗi cũ (đúng 1 chỗ), chuỗi mới, lý 
     'Bỏ qua đổi dữ liệu', '375x812-light', null],
   ['AI đổi nhầm dòng', 'ai.js', NEO_AP, apThay(`const v = (await goiApi('/api/viec')).viec.find(x => x.id !== op.id && !x.xong_luc); ` +
     goi(`{ loai: 'sua', bang: 'viec', id: v.id, phien_ban: v.phien_ban, truong: { han: op.truong.han } }`)), 'Áp dụng sai giá trị hạn', '375x812-light', null],
+  // lượt 4c: R8 (liên kết thanh trái — lớp thật `lk-mach`), R11 (miền ngày), bàn phím (ngăn ☰ inert, Esc trả focus)
+  ['Liên kết thanh trái bị chặn', 'khung.js', `  window.addEventListener('hashchange', veMan);`,
+    `  window.addEventListener('hashchange', veMan);\n  document.addEventListener('click', e => { if (e.target.closest('.lk-mach')) e.preventDefault(); }, true);`,
+    'bấm liên kết không đổi màn', '1440x900-light', 'R8'],
+  ['Ô ngày thiếu min/max', 'giao-dien.js', ', min: MIEN_NGAY.min, max: MIEN_NGAY.max', '', 'ô ngày thiếu min/max', '375x812-light', 'R11'],
+  ['Ngăn ☰ không inert', 'khung.js', `  document.querySelector('.workspace').inert = mo;\n`, '', 'Tab thoát khỏi ngăn', '375x812-light', null],
+  // Bỏ hẳn traVe?.focus() là cấy TƯƠNG ĐƯƠNG trên Chromium: <dialog> modal đóng thì trình duyệt tự trả focus về phần tử trước showModal
+  // (đo 4c: bản cấy đó vẫn rc 0 sau khi có phép bàn phím). Cấy làm focus thật sự không về: traFocus bỏ focus đang có.
+  ['Esc không trả focus', 'giao-dien.js', 'function traFocus() { traVe?.focus(); traVe = null; }', 'function traFocus() { document.activeElement?.blur(); traVe = null; }',
+    'focus không về chỗ cũ', '375x812-light', null],
 ];
 const chon = process.argv.slice(2), ds = chon.length ? CAY.filter(c => chon.includes(c[0])) : CAY;
 const chay = (...a) => spawnSync(process.execPath, [doDemo, ...a], { encoding: 'utf8', timeout: 240000 });
