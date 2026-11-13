@@ -42,12 +42,18 @@ export async function guiGoi(ops, tin) {
     return false;
   } finally { dangGui = false; }
   dauOps = null;
-  LICH_SU.push({ ma_hoan: o.ma_hoan, tin });
-  hienHoanTac(tin, hoanTac);
+  nhanHoanTac(o.ma_hoan, tin);
   bao(tin);
   await taiLai();
   return true;
 }
+
+// Gói đã ghi (guiGoi, hoặc Áp dụng đề xuất ở ai.js) ⇒ nhận mã hoàn tác + hiện thanh Hoàn tác.
+export function nhanHoanTac(ma_hoan, tin) {
+  LICH_SU.push({ ma_hoan, tin });
+  hienHoanTac(tin, hoanTac);
+}
+export const timDong = (bang, id) => tim(bang, id);
 
 export async function hoanTac() {
   const b = LICH_SU.pop();

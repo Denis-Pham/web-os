@@ -673,6 +673,9 @@ const NHOM = {
     ['ai-khoa-goi', MC, 'khoa: () => docKhoaAI(ch.tepKhoaAI)', "khoa: () => fs.readFileSync(ch.tepKhoaAI, 'utf8').trim()", T_AI],
     ['ai-redirect-ham', HA, "redirect: 'manual'", "redirect: 'follow'", T_AI],
     ['ai-tools-ham', HA, "response_format: { type: 'json_object' } }", "response_format: { type: 'json_object' }, tools: [] }", T_AI],
+    // B3 lượt 3c: giao diện web/ai.js (T5–T7 trình duyệt thật)
+    ['ai-ui-bo-qua-goi', 'web/ai.js', "dangKyHanhDong('bo-qua', boQua)", "dangKyHanhDong('bo-qua', apDung)", ['test-web/ai.test.mjs']],
+    ['ai-ui-ap-dung-ham', 'web/ai.js', "const id = n.closest('[data-de-xuat]').dataset.deXuat, khoa_lap", "const id = document.querySelector('#hop [data-de-xuat]').dataset.deXuat, khoa_lap", ['test-web/ai.test.mjs']],
   ],
 };
 

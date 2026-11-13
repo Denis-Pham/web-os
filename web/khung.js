@@ -8,6 +8,7 @@ import { MAN as CHU } from './man-chu.js';
 import { MAN as BAN } from './ban.js';
 import { MAN as COS } from './viec-lich.js';
 import { MAN as KHAC, MACH, lienKet, urlNgoai, chuaNoi } from './mach.js';
+import './ai.js';
 
 const $ = id => document.getElementById(id);
 const TEN = new Map([...MACH, ['ban', 'Bản giao diện']]);

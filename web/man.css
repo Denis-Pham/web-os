@@ -64,3 +64,6 @@
 .nut-hop { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .nut-hop p { flex: 1 1 100%; margin: 0; }
 .nut-hop p:empty { display: none; }
+.de-xuat { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--vien); overflow-wrap: anywhere; }
+.de-xuat p { margin: 0; }
+.de-xuat .nhan { font-weight: 600; color: var(--phu); }

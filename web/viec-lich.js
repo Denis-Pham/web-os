@@ -44,7 +44,7 @@ function ve(g) {
     el('div', { class: 'dau-man' }, el('h1', {}, 'Việc & lịch'), el('div', { class: 'nut-dong' },
       el('button', { type: 'button', class: 'nut-chinh', 'data-act': 'them-viec', disabled: !ghiDuoc }, 'Thêm việc'),
       el('button', { type: 'button', 'data-act': 'them-lich', disabled: !ghiDuoc }, 'Thêm lịch'),
-      el('button', { type: 'button', 'data-act': 'hoi-ai', hidden: true }, 'Hỏi AI'))),
+      el('button', { type: 'button', 'data-act': 'hoi-ai', disabled: !ghiDuoc }, 'Hỏi AI'))),
     el('div', { class: 'luoi-cos' }, veBrief(dem.b),
       khung('viec', 'Việc', ds(mo, veViec, 'Chưa có việc nào.')),
       khung('lich', 'Lịch 14 ngày tới', ds(dem.l, veLich, 'Không có lịch nào trong 14 ngày tới.')),
