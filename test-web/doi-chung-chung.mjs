@@ -30,7 +30,7 @@ export function doiChung(ten, cay) {
   test(`đối chứng bộ đo: ${ten}`, { timeout: 3600000 }, async () => {
     await vaoHang();
     try {
-      const r = spawnSync(process.execPath, [DOI_CHUNG, ...cay], { cwd: GOC, encoding: 'utf8', timeout: 470000 });
+      const r = spawnSync(process.execPath, [DOI_CHUNG, ...cay], { cwd: GOC, encoding: 'utf8', timeout: 400000 });
       const ra = (r.stdout || '') + (r.stderr || '');
       assert.equal(r.status, 0, ra.slice(0, 2000));
       assert.ok(ra.includes('ĐỐI CHỨNG ĐẠT'), ra.slice(0, 2000));

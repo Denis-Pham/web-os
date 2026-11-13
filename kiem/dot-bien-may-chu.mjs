@@ -2,7 +2,7 @@
 // (mọi rc ≠ 0, kể cả hết giờ, tính «diệt»; còn đột biến sống vẫn thoát 0).
 // Dùng: node kiem/dot-bien-may-chu.mjs [NHÓM …]   (vd A1; bỏ trống = mọi nhóm). Thoát 0 CHỈ khi gốc xanh và MỌI đột biến DIỆT.
 // Pha B: phần tử thứ 5 (tuỳ chọn) = mảng tệp test của đột biến (vắng ⇒ test-may-chu/*.test.mjs); gốc chạy MỌI bộ tệp test có mặt, mỗi đột biến
-// so số test với gốc CỦA BỘ ĐÓ; bộ có test-web/ hạn 240 s; con chạy với WEB_DOI_CHUNG=0 (cấy đối chứng của test trình duyệt tắt).
+// so số test với gốc CỦA BỘ ĐÓ; bộ có test-web/ hạn 420 s; con chạy với WEB_DOI_CHUNG=0 (cấy đối chứng của test trình duyệt tắt).
 // Chép từng tệp của `git ls-files` (đã theo dõi + chưa theo dõi mà không bị .gitignore) sang thư mục tạm — không rsync/cp -R,
 // không symlink (symlink ghi xuyên về nguồn thật). Bản chép CHƯA đột biến chạy trước: không xanh ⇒ «GỐC ĐỎ», thoát 1.
 import fs from 'node:fs';
@@ -11,7 +11,7 @@ import path from 'node:path';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000, HAN_WEB_MS = 240000;
+const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000, HAN_WEB_MS = 420000;   // 4d: test mỏng doi-chung-r8 chạy một mình ~240 s (4 lượt chay-do ở 1440)
 const BO_MAC_DINH = ['test-may-chu/*.test.mjs'];
 const KHO = 'may-chu/kho.mjs', GOI = 'may-chu/goi.mjs';
 const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-chu.mjs', CH = 'may-chu/cau-hinh.mjs';
