@@ -4,6 +4,9 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Bộ gác: cổng 8317 hay máy khác 127.0.0.1 ⇒ ghi lại + ném, KHÔNG gửi.
 const gac = (goc, chan) => async (dich, ...con) => {
@@ -15,6 +18,7 @@ const gac = (goc, chan) => async (dich, ...con) => {
 const CHAN = [];
 globalThis.fetch = gac(globalThis.fetch, CHAN);
 const { DAU_GHI, moiTruong, goi, ve, AUD_HUB } = await import('./chung.mjs');
+const { taoGoiAI, docKhoaAI } = await import('../may-chu/hoi-ai.mjs');
 
 const mt = moiTruong();
 // Model giả: mỗi ca đặt `traLoi` (messages ⇒ chuỗi, có thể là lời hứa); `daGui` giữ messages máy chủ đã gửi.
@@ -155,6 +159,68 @@ test('B3-T3 cổng: 423 cos_ghi tắt · 503 chưa cấu hình · 403 CSRF · 40
   traLoi = hopLe;
   r = await hoi();
   assert.equal(r.ma, 200, r.than);
+});
+
+// Khoá thử (lượt 3b): mỗi tệp trong một thư mục mkdtemp riêng (trong mt.tam), quyền đặt tường minh — không đọc/ghi tệp khoá thật nào.
+const KHOA_THU = 'khoa_thu_' + randomUUID().replaceAll('-', '');
+function tepKhoa(quyen) {
+  const f = path.join(fs.mkdtempSync(path.join(mt.tam, 'khoa-')), 'khoa');
+  fs.writeFileSync(f, KHOA_THU + '\n');
+  fs.chmodSync(f, quyen);
+  return f;
+}
+// CLIProxyAPI giả trên 127.0.0.1:0, ghi mọi yêu cầu (đường, header, thân): /chuyen ⇒ 302 sang /dich · /cham không trả · /cham-than trả header rồi treo thân · còn lại 200.
+async function mayGia() {
+  const nhan = [];
+  let goc;
+  const sv = http.createServer((req, res) => {
+    const b = []; req.on('data', d => b.push(d));
+    req.on('end', () => {
+      nhan.push({ duong: req.url, dau: req.headers, than: Buffer.concat(b).toString() });
+      if (req.url === '/chuyen') { res.writeHead(302, { Location: goc + '/dich' }); res.end(); return; }
+      if (req.url === '/cham') return;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      if (req.url === '/cham-than') { res.write('{"choices":'); return; }
+      res.end(JSON.stringify({ choices: [{ message: { content: 'tra-loi-gia' } }] }));
+    });
+  });
+  await new Promise(ok => sv.listen(0, '127.0.0.1', ok));
+  goc = 'http://127.0.0.1:' + sv.address().port;
+  return { goc, nhan, dong: () => new Promise(ok => { sv.closeAllConnections(); sv.close(ok); }) };
+}
+
+test('B3-T4 taoGoiAI + docKhoaAI (máy giả 127.0.0.1:0): 0600 ⇒ model đúng, không tools, Bearer · 0644 ⇒ 500 · 302 ⇒ 502 không theo · chậm ⇒ 503', async () => {
+  const gia = await mayGia();
+  try {
+    const tep600 = tepKhoa(0o600), tep644 = tepKhoa(0o644), tin = [{ role: 'user', content: 'thử' }];
+    const hoiGia = (tep, duong, them = {}) => taoGoiAI({ khoa: () => docKhoaAI(tep), url: gia.goc + duong, ...them })(tin);
+    assert.equal(await hoiGia(tep600, '/ok'), 'tra-loi-gia');
+    assert.equal(gia.nhan.length, 1);
+    const [y] = gia.nhan, than = JSON.parse(y.than);
+    assert.equal(than.model, 'gemini-3.8-flash-high');
+    assert.equal(Object.hasOwn(than, 'tools'), false, 'thân yêu cầu không có khoá tools: ' + y.than);
+    assert.deepEqual(than.messages, tin);
+    assert.equal(y.dau.authorization, 'Bearer ' + KHOA_THU);
+
+    await assert.rejects(hoiGia(tep644, '/ok'), { ma: 500, loi: 'khoa_ai_quyen' });
+    assert.equal(gia.nhan.length, 1, 'khoá sai quyền ⇒ không gửi yêu cầu');
+
+    await assert.rejects(hoiGia(tep600, '/chuyen'), { ma: 502, loi: 'ai_loi' });
+    assert.equal(gia.nhan.filter(q => q.duong === '/dich').length, 0, 'không theo Location');
+    assert.deepEqual(gia.nhan.map(q => q.duong), ['/ok', '/chuyen']);
+
+    for (const duong of ['/cham', '/cham-than']) await assert.rejects(hoiGia(tep600, duong, { hetGio: 200 }), { ma: 503, loi: 'ai_ban' }, duong);
+  } finally { await gia.dong(); }
+});
+
+test('B3-T4 khởi động: tepKhoaAI 0644, không tiêm goiAI ⇒ /api/hoi-ai 500 khoa_ai_quyen, không yêu cầu nào ra mạng (bộ gác 0 lần)', async () => {
+  const n = CHAN.length;
+  const k = await mt.may({ cosGhi: true, tepKhoaAI: tepKhoa(0o644) });
+  let r = await post(k, '/api/goi', { khoa_lap: 'ai-khoa-' + ++so, ops: [{ loai: 'them', bang: 'viec', truong: { tieu_de: 'Khởi động: việc mở có hạn', han: '2026-11-20' } }] });
+  assert.equal(r.ma, 200, r.than);
+  r = await hoi(k);
+  assert.deepEqual([r.ma, r.json], [500, { loi: 'khoa_ai_quyen' }]);
+  assert.deepEqual(CHAN.slice(n), [], 'không yêu cầu nào tới CLIProxyAPI thật');
 });
 
 test('bộ gác mạng: đối chứng (chặn 8317 + máy khác, cho 127.0.0.1 cổng khác) và cả tệp không yêu cầu nào bị chặn', async () => {

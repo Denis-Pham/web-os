@@ -668,6 +668,11 @@ const NHOM = {
     ['ai-ghi-ngay', HA, 'ops: d.ops }, iso);\n', "ops: d.ops }, iso);\n      (await import('./goi.mjs')).apGoi(ctx.db, { khoa_lap: crypto.randomUUID(), ops: d.ops, chu_the: 'anh', nguon: { loai: 'de_xuat' } }, iso);\n", T_AI],
     ['ai-cos-ghi-goi', API, '{ kiemCosGhi(ctx); docJson(than, []); if (!ctx.goiAI)', '{ docJson(than, []); if (!ctx.goiAI)', T_AI],
     ['ai-chua-cau-hinh-goi', API, " if (!ctx.goiAI) throw new LoiGoi(503, 'ai_chua_cau_hinh');", '', T_AI],
+    // B3 lượt 3b: quyền khoá (hàm) + chỗ gọi docKhoaAI ở khoiDong (ca khởi động 0644; fetch tới 8317 bị bộ gác test chặn) · redirect manual · không tools (R11).
+    ['ai-khoa-quyen-ham', HA, '(st.mode & 0o077) !== 0 || st.uid !== process.getuid()', 'st.uid !== process.getuid()', T_AI],
+    ['ai-khoa-goi', MC, 'khoa: () => docKhoaAI(ch.tepKhoaAI)', "khoa: () => fs.readFileSync(ch.tepKhoaAI, 'utf8').trim()", T_AI],
+    ['ai-redirect-ham', HA, "redirect: 'manual'", "redirect: 'follow'", T_AI],
+    ['ai-tools-ham', HA, "response_format: { type: 'json_object' } }", "response_format: { type: 'json_object' }, tools: [] }", T_AI],
   ],
 };
 
