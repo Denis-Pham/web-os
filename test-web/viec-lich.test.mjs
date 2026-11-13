@@ -388,6 +388,25 @@ test('B2-S2 heap: tieu_de của lần ghi THẤT BẠI (offline) có trước he
   } finally { mm.cau.datVe(); await ctx.close(); }
 });
 
+// Sửa cuối I2: Hoàn tác lỗi tạm (mất mạng) không được làm mất mục hoàn tác; gửi lại an toàn (máy chủ: hoan_luc IS NULL ⇒ 409 da_hoan).
+test('B2-S4 xoá việc ⇒ mất mạng bấm Hoàn tác ⇒ thanh Hoàn tác vẫn hiện; có mạng lại bấm Hoàn tác ⇒ việc về', async () => {
+  const mm = await maySach();
+  const con = async () => (await goi(mm.may, '/api/viec')).json.viec.some(x => x.tieu_de === 'Việc hai');
+  await moCos(async page => {
+    await dong(page, 'viec', 'Việc hai').locator('[data-act="xoa"]').click();
+    await cho(async () => !(await con()), 'việc phải bị xoá');
+    await page.locator('#thanh-hoan-tac:not([hidden])').waitFor();
+    await page.context().setOffline(true);
+    await hoanTac(page);
+    await page.locator('#tin', { hasText: 'Mất kết nối' }).waitFor();
+    await page.locator('#thanh-hoan-tac:not([hidden])').waitFor({ timeout: 2000 });
+    assert.equal(await con(), false, 'mất mạng mà việc đã về');
+    await page.context().setOffline(false);
+    await hoanTac(page);
+    await cho(con, 'có mạng lại bấm Hoàn tác ⇒ việc về');
+  }, mm);
+});
+
 test('B2-S3 Việc nhà: tệp cũ ⇒ «cũ, dựng lúc»; tệp hỏng không bản tốt ⇒ chỉ nhãn «hỏng» (lớp nhan-loi), không «Chưa có việc nhà nào.»', async () => {
   const nha = await dungMay(); mayDong.push(nha);
   const vao = path.join(nha.mt.tam, 'xuat-vao'), tep = path.join(vao, 'viec-bo.json');

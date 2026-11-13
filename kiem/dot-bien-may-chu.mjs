@@ -645,6 +645,9 @@ const NHOM = {
     ['brief-ham', VL, "el('span', { 'data-so': k }, String(b[k]))", "el('span', { 'data-so': k }, '0')", T_VL],
     ['hoan-tac-ham', VG, 'LICH_SU.pop()', 'LICH_SU.shift()', T_VL],
     ['hoan-tac-goi', VG, 'hienHoanTac(tin, hoanTac);', 'hienHoanTac(tin, null);', T_VL],
+    // Sửa cuối I2: Hoàn tác lỗi tạm giữ mục (hàm: bỏ dòng đẩy lại · chỗ gọi: điều kiện giữ mục luôn sai) — B2-S4 giết
+    ['hoan-tac-giu-ham', VG, 'LICH_SU.push(b);', ';', T_VL],
+    ['hoan-tac-giu-goi', VG, 'if (e instanceof LoiMang || e instanceof LoiChiDoc || (e instanceof LoiApi && e.ma >= 500))', 'if (false)', T_VL],
     // B2 lượt 2c: trả focus sau Huỷ/Esc (hàm: traFocus không focus) · miền ngày R11 (hàm: oNgay bỏ min/max; chỗ gọi: ô han của form việc không qua oNgay) ·
     // don() của màn cos không còn thật (bí mật còn trong heap sau het_luc) · cos_ghi (chỗ gọi: màn luôn bật nút ghi)
     ['focus-ham', 'web/giao-dien.js', 'function traFocus() { traVe?.focus(); traVe = null; }', 'function traFocus() { traVe = null; }', T_VL],

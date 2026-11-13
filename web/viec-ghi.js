@@ -64,6 +64,8 @@ export async function hoanTac() {
   } catch (e) {
     if (e instanceof LoiPhien) return;
     bao(e instanceof LoiApi && e.loi === 'da_sua_sau' ? 'Anh đã sửa sau — không hoàn tác được.' : tinLoi(e));
+    // Lỗi tạm (mạng, chỉ đọc, 5xx) ⇒ giữ mục, thanh hiện lại để bấm lại (gửi lại an toàn: máy chủ 409 da_hoan); 404/409 ⇒ bỏ mục (soát cuối I2).
+    if (e instanceof LoiMang || e instanceof LoiChiDoc || (e instanceof LoiApi && e.ma >= 500)) LICH_SU.push(b);
   }
   if (LICH_SU.length) hienHoanTac(LICH_SU.at(-1).tin, hoanTac);
   return taiLai();
