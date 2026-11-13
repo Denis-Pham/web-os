@@ -22,6 +22,7 @@ const SW = 'web/sw.js', T_SW = ['test-web/sw.test.mjs'];
 const BAN_UI = 'web/ban.js', T_BAN_UI = ['test-web/ban-ui.test.mjs'], T_PHUC_HOI = ['test-web/phuc-hoi.test.mjs'];
 const VL = 'web/viec-lich.js', VG = 'web/viec-ghi.js', T_VL = ['test-web/viec-lich.test.mjs'];
 const HA = 'may-chu/hoi-ai.mjs', T_AI = ['test-may-chu/hoi-ai.test.mjs'];
+const DBT = 'kiem/do-ban-that.js', CHAY_DO = 'kiem/chay-do.mjs', T_DC = lo => [`test-web/doi-chung-${lo}.test.mjs`];
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -677,6 +678,19 @@ const NHOM = {
     // B3 lượt 3c: giao diện web/ai.js (T5–T7 trình duyệt thật)
     ['ai-ui-bo-qua-goi', 'web/ai.js', "dangKyHanhDong('bo-qua', boQua)", "dangKyHanhDong('bo-qua', apDung)", ['test-web/ai.test.mjs']],
     ['ai-ui-ap-dung-ham', 'web/ai.js', "const id = n.closest('[data-de-xuat]').dataset.deXuat, khoa_lap", "const id = document.querySelector('#hop [data-de-xuat]').dataset.deXuat, khoa_lap", ['test-web/ai.test.mjs']],
+  ],
+  // B4 lượt 4d: đột biến BỘ ĐO (kiem/) — mỗi phép (hàm) + chỗ gọi; giết bằng test mỏng test-web/doi-chung-<lỗ>.test.mjs (chạy kiem/doi-chung.mjs theo cấy của lỗ).
+  B4: [
+    ['do-r6-ham', DBT, "const khoaDong = x => JSON.stringify(Object.keys(x).sort().map(k => [k, x[k]]));", "const khoaDong = x => JSON.stringify(Object.keys(x).filter(k => k !== 'han').sort().map(k => [k, x[k]]));", T_DC('r6')],
+    ['do-r6-goi', DBT, '} else soApDung(s0b, dx.ops, s1);', '} else undefined;', T_DC('r6')],
+    ['do-k1-ham', DBT, "if (A.size !== B.size || [...A.keys()].some(id => !B.has(id))) throw Error('Áp dụng thêm/bớt dòng');", "if (false) throw Error('Áp dụng thêm/bớt dòng');", T_DC('k1')],
+    ['do-r7-ham', DBT, "if (await anhR7() !== a0) hong('màn chỉ xem đổi trạng thái: ' + m);", "if (false) hong('màn chỉ xem đổi trạng thái: ' + m);", T_DC('r7')],
+    ['do-r7-goi', DBT, "for (const m of MAN.filter(x => x !== 'cos')) {\n      await toi(m); const a0 = await anhR7();", "for (const m of []) {\n      await toi(m); const a0 = await anhR7();", T_DC('r7')],
+    ['do-r8-ham', CHAY_DO, "if (hash !== '#' + id || !(await man.isVisible()))", "if (hash !== '#' + id)", T_DC('r8')],   // chỉ cấy «Đổi hash không vẽ màn» giết được
+    ['do-r8-goi', CHAY_DO, 'ngoai.push(...await doLoiVao(page));   // R8', 'ngoai.push(...[]);   // R8', T_DC('r8')],
+    ['do-r11-ham', DBT, " || i.getAttribute('max') !== '2100-12-31'", '', T_DC('r11')],
+    ['do-r11-goi', DBT, "if (!CU.includes('R11')) {", 'if (false) {', T_DC('r11')],
+    ['do-ban-phim-goi', CHAY_DO, 'ngoai.push(...await doBanPhim(page));   // bàn phím', 'ngoai.push(...[]);   // bàn phím', T_DC('ban-phim')],
   ],
 };
 

@@ -38,7 +38,9 @@ const CAY = [ // [tên, tệp, chuỗi cũ (đúng 1 chỗ), chuỗi mới, lý 
   ['Liên kết thanh trái bị chặn', 'khung.js', `  window.addEventListener('hashchange', veMan);`,
     `  window.addEventListener('hashchange', veMan);\n  document.addEventListener('click', e => { if (e.target.closest('.lk-mach')) e.preventDefault(); }, true);`,
     'bấm liên kết không đổi màn', '1440x900-light', 'R8'],
-  ['Ô ngày thiếu min/max', 'giao-dien.js', ', min: MIEN_NGAY.min, max: MIEN_NGAY.max', '', 'ô ngày thiếu min/max', '375x812-light', 'R11'],
+  // Hash đổi khi bấm liên kết nhưng màn không vẽ lại (bỏ nghe hashchange); lo null: do-r8-ham chỉ kiểm hash nên cấy này LỌT bản đó.
+  ['Đổi hash không vẽ màn', 'khung.js', `  window.addEventListener('hashchange', veMan);\n`, '', 'bấm liên kết không đổi màn', '1440x900-light', null],
+  ['Ô ngày thiếu min/max', 'giao-dien.js', ', max: MIEN_NGAY.max', '', 'ô ngày thiếu min/max', '375x812-light', 'R11'],
   ['Ngăn ☰ không inert', 'khung.js', `  document.querySelector('.workspace').inert = mo;\n`, '', 'Tab thoát khỏi ngăn', '375x812-light', null],
   // Bỏ hẳn traVe?.focus() là cấy TƯƠNG ĐƯƠNG trên Chromium: <dialog> modal đóng thì trình duyệt tự trả focus về phần tử trước showModal
   // (đo 4c: bản cấy đó vẫn rc 0 sau khi có phép bàn phím). Cấy làm focus thật sự không về: traFocus bỏ focus đang có.
@@ -51,7 +53,7 @@ const tam = fs.mkdtempSync(path.join(os.tmpdir(), 'doi-chung-')), tepVa = path.j
 let sai = 0;
 for (const t of chon.filter(t => !CAY.some(c => c[0] === t))) { sai++; console.log(JSON.stringify({ ban: t, loi: 'không có cấy tên này' })); }
 try {
-  const g = chay();
+  const g = ds.length < CAY.length ? chay('--co', [...new Set(ds.map(c => c[5]))].join(',')) : chay();   // có tên cấy ⇒ gốc chỉ trên cỡ của cấy được chọn
   console.log(JSON.stringify({ ban: 'GỐC', rc: g.status, dat: g.status === 0 }));
   if (g.status !== 0) { sai++; console.log((g.stdout + g.stderr).slice(0, 1500)); }
   for (const [ten, tep, cu, moi, lyDo, co, lo] of ds) {
