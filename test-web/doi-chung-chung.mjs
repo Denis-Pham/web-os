@@ -12,18 +12,23 @@ import { fileURLToPath } from 'node:url';
 const DOI_CHUNG = fileURLToPath(new URL('../kiem/doi-chung.mjs', import.meta.url)), GOC = fileURLToPath(new URL('..', import.meta.url));
 const KHOA = path.join(os.tmpdir(), 'web-os-doi-chung.khoa');   // tệp khoá chứa pid chủ; chủ đã chết (kể cả bị runner giết) ⇒ gỡ
 
+// Khoá ra đời CÓ SẴN pid (ghi tệp riêng rồi link nguyên tử) ⇒ đọc ra không phải số dương = khoá hỏng/mồ côi, gỡ.
+const goKhoa = () => { try { fs.unlinkSync(KHOA); } catch (e) { if (e.code !== 'ENOENT') throw e; } };
 async function vaoHang() {
-  for (;;) {
-    try { fs.writeFileSync(KHOA, String(process.pid), { flag: 'wx' }); return; } catch (e) {
-      if (e.code !== 'EEXIST') throw e;
-      try {
-        const chu = Number(fs.readFileSync(KHOA, 'utf8'));
-        let song = true; try { process.kill(chu, 0); } catch (k) { song = k.code === 'EPERM'; }
-        if (chu > 0 && !song) fs.unlinkSync(KHOA);
-      } catch { /* khoá vừa được trả hoặc chưa kịp ghi pid */ }
-      await nghi(2000);
+  const rieng = KHOA + '.' + process.pid;
+  fs.writeFileSync(rieng, String(process.pid));
+  try {
+    for (;;) {
+      try { fs.linkSync(rieng, KHOA); return; } catch (e) {
+        if (e.code !== 'EEXIST') throw e;
+        let chu; try { chu = Number(fs.readFileSync(KHOA, 'utf8')); } catch (r) { if (r.code === 'ENOENT') continue; throw r; }
+        let song = Number.isInteger(chu) && chu > 0;
+        if (song) try { process.kill(chu, 0); } catch (k) { song = k.code === 'EPERM'; }
+        if (!song) { goKhoa(); continue; }
+        await nghi(2000);
+      }
     }
-  }
+  } finally { fs.unlinkSync(rieng); }
 }
 
 export function doiChung(ten, cay) {
@@ -34,6 +39,6 @@ export function doiChung(ten, cay) {
       const ra = (r.stdout || '') + (r.stderr || '');
       assert.equal(r.status, 0, ra.slice(0, 2000));
       assert.ok(ra.includes('ĐỐI CHỨNG ĐẠT'), ra.slice(0, 2000));
-    } finally { fs.unlinkSync(KHOA); }
+    } finally { let chu = null; try { chu = fs.readFileSync(KHOA, 'utf8'); } catch (e) { if (e.code !== 'ENOENT') throw e; } if (chu === String(process.pid)) goKhoa(); }
   });
 }
