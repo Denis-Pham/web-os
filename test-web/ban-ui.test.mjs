@@ -84,16 +84,34 @@ test('bản chờ đổi sau khi liệt kê ⇒ Xem và Duyệt nhận 409 ⇒ �
   } finally { await t.ctx.close(); xoaCho(m, C); }
 });
 
+// SW đang điều khiển phải là bản `sha` và không còn installing/waiting (hạn 10 s, hết hạn ⇒ fail kèm trạng thái).
+async function swOnDinh(page, sha) {
+  const hang = () => page.evaluate(async x => {
+    const rg = await navigator.serviceWorker.getRegistration();
+    const url = navigator.serviceWorker.controller?.scriptURL ?? null;
+    return { ok: !!url && url.endsWith('/sw.js?ban=' + x) && !!rg && rg.installing === null && rg.waiting === null, url, installing: !!rg?.installing, waiting: !!rg?.waiting };
+  }, sha);
+  const han = Date.now() + 10_000;
+  let tt = await hang();
+  while (!tt.ok && Date.now() < han) { await new Promise(r => setTimeout(r, 100)); tt = await hang(); }
+  if (!tt.ok) assert.fail(`SW chưa ổn định ở bản ${sha}: ${JSON.stringify(tt)}`);
+}
+
 test('Duyệt ⇒ trang tải lại ở bản mới; Lùi ⇒ về bản cũ', async () => {
   const A = await datBan(m), C = datCho(m, { va: { 'index.html': [['<title>', '<!-- bản C --><title>']] } }), t = await moBan(m, C);
   const banTrang = () => t.page.evaluate(() => fetch('/ban.json', { cache: 'no-store' }).then(r => r.json()).then(o => o.ban));
   try {
-    for (const [nut, dich] of [[`[data-cho="${C}"] [data-act="duyet-ban"]`, C], ['[data-act="lui-ban"]', A]]) {
+    for (const [nut, dich, dang] of [[`[data-cho="${C}"] [data-act="duyet-ban"]`, C, A], ['[data-act="lui-ban"]', A, C]]) {
       await t.page.locator(nut + ':not([disabled])').waitFor({ timeout: 5000 });
-      const nap = t.page.waitForEvent('load', { timeout: 10_000 }).then(() => true, () => false);
-      await t.page.locator(nut).click();
-      if (!(await nap)) assert.fail(`không tải lại sau ${nut} · #tin «${await t.page.locator('#tin').textContent()}» · loi ${JSON.stringify(t.loi)}`);
-      await t.page.locator('html[data-san="1"]').waitFor({ timeout: 5000 });
+      await swOnDinh(t.page, dang);
+      await t.page.evaluate(() => { window.__cu = 1; });
+      const [r] = await Promise.all([
+        t.page.waitForResponse(x => /\/api\/ban\/(duyet|lui)$/.test(new URL(x.url()).pathname), { timeout: 10_000 }),
+        t.page.locator(nut).click(),
+      ]);
+      if (r.status() !== 200) assert.fail(`POST hỏng: ${r.status()} · #tin «${await t.page.locator('#tin').textContent()}»`);
+      await t.page.waitForFunction(() => !window.__cu && document.documentElement.dataset.san === '1', null, { timeout: 10_000 })
+        .catch(async e => assert.fail(`không tải lại sau ${nut} · ${e.message.split('\n')[0]} · #tin «${await t.page.locator('#tin').textContent().catch(() => '?')}» · loi ${JSON.stringify(t.loi)}`));
       assert.deepEqual([await banTrang(), (await goi(m.may, '/api/ban')).json.hien_tai.sha], [dich, dich], nut);
       await t.page.locator(`${BAN} [data-hien-tai]`, { hasText: dich }).waitFor({ timeout: 5000 });
     }
