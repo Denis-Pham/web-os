@@ -1,5 +1,5 @@
 // Bộ đo bản thật web-os (B4; chép từ web-os-demo@6f544d4 kiem/do-demo.js rồi vá). Chạy trong trang: page.evaluate(`(${src})(${JSON.stringify(cu)})`).
-// CU = tên lỗ chạy biến thể CŨ (lượt 4b/4c). CHE_DO 'het-phien' = chỉ đo màn Hết phiên đang hiện (chay-do.mjs gọi sau datVe(null)).
+// CU = tên lỗ chạy biến thể CŨ (R6/K1, R7 ở lượt 4b; R8, R11 ở lượt 4c). CHE_DO 'het-phien' = chỉ đo màn Hết phiên đang hiện (chay-do.mjs gọi sau datVe(null)).
 // Trạng thái đọc qua API thật (trangThai/datLai), không còn window.DEMO. Phần do1 + đối chứng giao diện lấy từ ~/dev/learning-ban-mau/kiem/do-ban-mau.js (Khuôn Hub).
 async (CU = [], CHE_DO = null) => {
   const ngu = ms => new Promise(r => setTimeout(r, ms));
@@ -218,29 +218,78 @@ async (CU = [], CHE_DO = null) => {
     if (coDong('lich', id)) throw Error('màn còn dòng đã xoá');
   });
 
+  // R6 + K1 (một phép so, lượt 4b): kỳ vọng = trạng thái trước Áp dụng với ĐÚNG viec[op.id].han = op.truong.han (ops đọc từ /api/de-xuat);
+  // sau Áp dụng so SÂU theo id: tập id việc + lịch phải trùng (K1), mọi trường nội dung phải trùng (R6). trangThai() đã bỏ phien_ban, sua_luc.
+  const khoaDong = x => JSON.stringify(Object.keys(x).sort().map(k => [k, x[k]]));
+  const soApDung = (truoc, ops, sau) => {
+    const ky = { viec: truoc.viec.map(x => ({ ...x })), lich: truoc.lich.map(x => ({ ...x })) };
+    for (const op of ops) {
+      const v = op.loai === 'sua' && op.bang === 'viec' && Object.keys(op.truong ?? {}).join() === 'han' && ky.viec.find(x => String(x.id) === String(op.id));
+      if (!v) throw Error('đề xuất có thao tác phép so không nhận (chỉ sửa hạn việc có sẵn): ' + JSON.stringify(op).slice(0, 100));
+      v.han = op.truong.han;
+    }
+    const bang = k => [new Map(ky[k].map(x => [String(x.id), khoaDong(x)])), new Map(sau[k].map(x => [String(x.id), khoaDong(x)]))];
+    for (const k of ['viec', 'lich']) { const [A, B] = bang(k); if (A.size !== B.size || [...A.keys()].some(id => !B.has(id))) throw Error('Áp dụng thêm/bớt dòng'); }
+    for (const k of ['viec', 'lich']) { const [A, B] = bang(k); for (const [id, v] of A) if (B.get(id) !== v) throw Error('Áp dụng sai giá trị hạn'); }
+  };
   await thu('Hỏi AI', async () => {
     await veCos(); const s0 = await trangThai(), j0 = DL(s0);
-    await bam('hoi-ai'); let h = hop(); if (!h) throw Error('không mở hộp');
+    await bam('hoi-ai');
+    // dữ liệu trước, hộp sau: hộp tự ghi rồi tự đóng vẫn phải báo đúng lỗi ghi
+    if (DL(await trangThai()) !== j0) throw Error('hiện đề xuất đã ghi dữ liệu');
+    let h = hop(); if (!h) throw Error('không mở hộp');
     if (!$$('[data-de-xuat]', h).some(hien)) throw Error('không có đề xuất');
     await choHieuUng(); const t = tomTat(do1()); if (t) hong('hộp AI: ' + t);
-    if (DL(await trangThai()) !== j0) throw Error('hiện đề xuất đã ghi dữ liệu');
     await bam('bo-qua', h); if (DL(await trangThai()) !== j0) throw Error('Bỏ qua đổi dữ liệu');
     await dongHop(hop());
-    // CŨ (demo :180–187): đếm doiDong === 1 + tên dòng trong chữ đề xuất — lượt 4b giữ làm biến thể CU của R6/K1.
     await veCos(); const s0b = await trangThai(), d0 = dom(); await bam('hoi-ai'); h = hop();
-    const chuDX = ($$('[data-de-xuat]', h).find(hien) || {}).textContent || ''; await bam('ap-dung', h);
-    const s1 = await trangThai(), n = doiDong(s0b, s1); if (n !== 1) throw Error('Áp dụng đổi ' + n + ' dòng (phải 1)');
-    // dòng bị đổi phải là dòng đề xuất nói tên (soát chung 11/11 phát hiện 13)
-    const sau = new Map([...s1.viec, ...s1.lich].map(x => [String(x.id), JSON.stringify(x)]));
-    const doi = [...s0b.viec, ...s0b.lich].find(x => sau.get(String(x.id)) !== JSON.stringify(x));
-    if (doi && !chuDX.includes(doi.tieu_de)) throw Error('Áp dụng đổi «' + doi.tieu_de + '», không phải dòng đề xuất nói');
+    const li = h && $$('[data-de-xuat]', h).find(hien); if (!li) throw Error('không có đề xuất để Áp dụng');
+    const chuDX = li.textContent, dx = (await lay('/api/de-xuat')).de_xuat.find(d => String(d.id) === li.dataset.deXuat);
+    if (!dx) throw Error('đề xuất trên hộp không có ở /api/de-xuat');
+    await bam('ap-dung', li);
+    const s1 = await trangThai();
+    if (CU.includes('R6') || CU.includes('K1')) {
+      // CŨ (demo :180–187): đếm doiDong === 1 + tên dòng trong chữ đề xuất — lọt sai giá trị hạn (R6) và dòng thêm cùng tên (K1).
+      const n = doiDong(s0b, s1); if (n !== 1) throw Error('Áp dụng đổi ' + n + ' dòng (phải 1)');
+      // dòng bị đổi phải là dòng đề xuất nói tên (soát chung 11/11 phát hiện 13)
+      const sau = new Map([...s1.viec, ...s1.lich].map(x => [String(x.id), JSON.stringify(x)]));
+      const doi = [...s0b.viec, ...s0b.lich].find(x => sau.get(String(x.id)) !== JSON.stringify(x));
+      if (doi && !chuDX.includes(doi.tieu_de)) throw Error('Áp dụng đổi «' + doi.tieu_de + '», không phải dòng đề xuất nói');
+    } else soApDung(s0b, dx.ops, s1);
     if (!nut('hoan-tac')) await dongHop(hop());
     if (dom() === d0) throw Error('Áp dụng: giao diện không đổi');
     await bam('hoan-tac'); if (DL(await trangThai()) !== DL(s0b)) throw Error('Hoàn tác sau Áp dụng không về y trước');
     await dongHop(hop()); kq.cos.push('Hỏi AI');
   });
-  // CŨ (demo :206–216, SIA/Toà án): màn chỉ xem không có nút ghi — dò tên data-act. Lượt 4b giữ làm biến thể CU của R7.
-  await thu('màn chỉ xem', async () => {
+  // R7 (lượt 4b): màn chỉ xem = chu + 10 màn mach.js + nhóm Việc nhà. Bấm MỌI button, [role=button], input hiện (trừ ☰, Hỏi AI, Hoàn tác,
+  // liên kết thanh trái), đóng hộp sau mỗi cú bấm, rồi so việc + lịch + nhật ký trước/sau. Đề xuất chờ không so (ruling 4b, như Hỏi AI).
+  // /api/nhat-ky trả ≤ 200 dòng ⇒ «số nhật ký» = số dòng kèm id mới nhất (đếm trần 200 không đổi khi thêm dòng).
+  const soNhatKy = async () => { const n = (await lay('/api/nhat-ky')).nhat_ky; return n.length + ':' + (n[0]?.id ?? 0); };
+  const anhR7 = async () => DL(await trangThai()) + '|' + await soNhatKy();
+  const BO_R7 = '[data-act="mo-menu"],[data-act="hoi-ai"],[data-act="hoan-tac"],#cac-mach *';
+  const bamHet = async (goc, ve, ten) => {   // goc() hỏi lại mỗi vòng: cú bấm có thể vẽ lại màn
+    for (let i = 0; ; i++) {
+      const ds = $$('button,[role=button],input', goc()).filter(b => hien(b) && !b.matches(BO_R7));
+      if (i >= ds.length) return;
+      if (i >= 60) throw Error(ten + ': quá 60 nút');
+      await bamEl(ds[i], (ds[i].getAttribute('aria-label') || ds[i].textContent || ds[i].tagName).trim().slice(0, 20));
+      await dongHop(hop()); await ve();
+    }
+  };
+  if (!CU.includes('R7')) await thu('màn chỉ xem', async () => {
+    for (const m of MAN.filter(x => x !== 'cos')) {
+      await toi(m); const a0 = await anhR7();
+      await bamHet(() => document, async () => { if (location.hash !== '#' + m) await toi(m); }, 'màn ' + m);
+      if (await anhR7() !== a0) hong('màn chỉ xem đổi trạng thái: ' + m);
+    }
+    await toi('cos'); const g = () => document.querySelector('[data-man="cos"] [data-nhom="viec-nha"]');
+    if (!hien(g())) { hong('thiếu nhóm Việc nhà'); return; }
+    const a0 = await anhR7();
+    await bamHet(g, async () => { if (location.hash !== '#cos') await toi('cos'); }, 'nhóm Việc nhà');
+    if (await anhR7() !== a0) hong('màn chỉ xem đổi trạng thái: nhóm Việc nhà');
+  });
+  // CŨ (CU R7; demo :206–216, SIA/Toà án): màn chỉ xem không có nút ghi — dò tên data-act. Lọt nút ghi không mang data-act.
+  else await thu('màn chỉ xem', async () => {
     const choPhep = new Set(['hoi-ai', 'mo-menu', 'dong-menu', 'hoan-tac', 'gap']);
     for (const m of MAN.filter(x => x !== 'cos')) {
       await toi(m); const g = document.querySelector(`#noi-dung > section[data-man="${m}"]`);
