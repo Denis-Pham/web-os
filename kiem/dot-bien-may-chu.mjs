@@ -20,6 +20,7 @@ const DOM = 'web/dom.js', MAN_CHU = 'web/man-chu.js', T_KHUNG = ['test-web/khung
 const PHIEN = 'web/phien.js', API_WEB = 'web/api.js', KHUNG = 'web/khung.js', T_PHIEN = ['test-web/phien.test.mjs'];
 const SW = 'web/sw.js', T_SW = ['test-web/sw.test.mjs'];
 const BAN_UI = 'web/ban.js', T_BAN_UI = ['test-web/ban-ui.test.mjs'], T_PHUC_HOI = ['test-web/phuc-hoi.test.mjs'];
+const VL = 'web/viec-lich.js', VG = 'web/viec-ghi.js', T_VL = ['test-web/viec-lich.test.mjs'];
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -634,6 +635,14 @@ const NHOM = {
     ['viec-bo-ham', API, "d => d.viec.filter(v => !v.xong)) };", 'd => d.viec) };'],
     ['viec-bo-goi', API, 'return { viec_bo: vao === undefined ?', 'return { viec_bo: true ?'],
     ['cos-ghi-ham', API, 'cos_ghi: ctx.ch.cosGhi === true,', 'cos_ghi: true,'],
+    // B2 lượt 2b: màn Việc & lịch — vẽ lại sau ghi (hàm + chỗ gọi) · brief từ /api/brief (chỗ gọi: brief mẫu; hàm: veBrief ghi '0') ·
+    // Hoàn tác từng bước (hàm: pop ⇒ shift; chỗ gọi: thanh Hoàn tác không gắn hàm)
+    ['ghi-tai-lai-ham', VL, 'export async function taiLai() {', 'export async function taiLai() { return;', T_VL],
+    ['ghi-tai-lai-goi', VG, '  await taiLai();\n', '', T_VL],
+    ['brief-goi', VL, "const b = await goiApi('/api/brief');", 'const b = { qua_han: 2, han_hom_nay: 3, lich_hom_nay: 1, de_xuat_cho: 1 };', T_VL],
+    ['brief-ham', VL, "el('span', { 'data-so': k }, String(b[k]))", "el('span', { 'data-so': k }, '0')", T_VL],
+    ['hoan-tac-ham', VG, 'LICH_SU.pop()', 'LICH_SU.shift()', T_VL],
+    ['hoan-tac-goi', VG, 'hienHoanTac(tin, hoanTac);', 'hienHoanTac(tin, null);', T_VL],
   ],
 };
 

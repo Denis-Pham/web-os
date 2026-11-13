@@ -55,6 +55,7 @@ main { flex: 1; padding: 22px 28px; outline: none; }
 .thanh-hoan-tac { position: fixed; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 30; max-width: calc(100vw - 32px);
   display: flex; align-items: center; gap: 12px; padding: 6px 6px 6px 16px; border-radius: 10px; background: var(--chu); color: var(--nen); }
 .thanh-hoan-tac[hidden] { display: none; }
+body.co-hoan-tac main { padding-bottom: 148px; }   /* chừa chỗ: thanh cách đáy 64 px + cao ≥ 56 px + 16 px */
 .thanh-hoan-tac button { background: transparent; color: inherit; border-color: currentColor; }
 
 @media (min-width: 761px) and (max-width: 1190px) { :root { --rong-trai: 196px; } }

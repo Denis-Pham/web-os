@@ -5,7 +5,7 @@
 // Vỏ trả khi gặp 401/403 cho MỌI tệp vỏ (không riêng điều hướng): vỏ đệm cần nạp được khung.js/phien.js thì mới hiện được «Hết phiên».
 'use strict';
 const SHA = new URL(self.location.href).searchParams.get('ban') || 'khong-ro', TEN = 'vo-' + SHA;
-const VO = ['/', '/index.html', '/nen.css', '/man.css', '/dom.js', '/api.js', '/phien.js', '/giao-dien.js', '/khung.js', '/man-chu.js', '/mach.js', '/ban.js',
+const VO = ['/', '/index.html', '/nen.css', '/man.css', '/dom.js', '/api.js', '/phien.js', '/giao-dien.js', '/khung.js', '/man-chu.js', '/mach.js', '/ban.js', '/viec-lich.js', '/viec-ghi.js',
   '/manifest.webmanifest', '/bieu-tuong.svg', '/lien-ket.json'];
 const laVo = u => u.origin === self.location.origin && u.search === '' && VO.includes(u.pathname);
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(TEN).then(c => c.addAll(VO))); });

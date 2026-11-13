@@ -24,8 +24,9 @@ export function hienHoanTac(chu, fn) {
   hoanTac = fn;
   $('noi-dung-hoan-tac').textContent = chu;
   $('thanh-hoan-tac').hidden = false;
+  document.body.classList.add('co-hoan-tac');
 }
-export function anHoanTac() { hoanTac = null; $('thanh-hoan-tac').hidden = true; $('noi-dung-hoan-tac').textContent = ''; }
+export function anHoanTac() { hoanTac = null; $('thanh-hoan-tac').hidden = true; $('noi-dung-hoan-tac').textContent = ''; document.body.classList.remove('co-hoan-tac'); }
 
 export const MIEN_NGAY = { min: '2000-01-01', max: '2100-12-31' };
 export const oNgay = (name, giaTri) => el('input', { type: 'date', name, value: giaTri || null, min: MIEN_NGAY.min, max: MIEN_NGAY.max });

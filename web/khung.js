@@ -6,11 +6,12 @@ import { bao, dangKyHanhDong, ganGiaoDien } from './giao-dien.js';
 import { batDau as batDauPhien, daHetPhien, daKiemPhien, dangKyDon } from './phien.js';
 import { MAN as CHU } from './man-chu.js';
 import { MAN as BAN } from './ban.js';
+import { MAN as COS } from './viec-lich.js';
 import { MAN as KHAC, MACH, lienKet, urlNgoai, chuaNoi } from './mach.js';
 
 const $ = id => document.getElementById(id);
 const TEN = new Map([...MACH, ['ban', 'Bản giao diện']]);
-const SO_MAN = new Map([CHU, BAN, ...KHAC].map(m => [m.id, m]));
+const SO_MAN = new Map([CHU, COS, BAN, ...KHAC].map(m => [m.id, m]));
 const giuCho = (id, ten) => ({ id, ten, ve(goc) { goc.append(el('div', { class: 'dau-man' }, el('h1', {}, ten)), el('div', { class: 'the' }, chuaNoi())); }, don() {} });
 
 function idHienTai() { const id = location.hash.slice(1); return TEN.has(id) ? id : 'chu'; }
