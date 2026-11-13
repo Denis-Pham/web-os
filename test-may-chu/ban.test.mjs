@@ -312,3 +312,12 @@ test('do.sh dat-ban: chép web/ của commit vào <cho>/ban/<SHA40> (đọc đư
   assert.equal(spawnSync('/bin/bash', [DO_SH, 'lat', sB], { env }).status, 2);
   assert.deepEqual(fs.readdirSync(m.cho), ['ban']);
 });
+
+test('B1-M1: bản chờ có BAN.json (trùng tên dành riêng ban.json, APFS không phân biệt hoa thường) ⇒ xem loi ten_dat_truoc, duyệt 422 — không 500', async () => {
+  const m = await mayMoi(), tep = { 'index.html': '<!doctype html><title>M1</title>', 'BAN.json': '{"ban":"x"}' };
+  datBan(m.cho, E, tep);
+  assert.deepEqual(await xemCho(m, E), { sha: E, manifest: null, loi: 'ten_dat_truoc', tep: [] });
+  assert.deepEqual(pick(await duyet(m, E, manifestTu(tep))), hong('ten_dat_truoc'));
+  assert.equal(link(m, 'hien-tai'), null);
+  assert.deepEqual(tamSot(m), []);
+});

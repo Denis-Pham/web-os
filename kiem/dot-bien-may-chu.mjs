@@ -1,6 +1,8 @@
 // Đột biến máy chủ web-os (R7). Chuyển thể từ Learning kiem/dot-bien-may-chu.mjs @630a0bf, vá lỗi xanh-sai của bản đó
 // (mọi rc ≠ 0, kể cả hết giờ, tính «diệt»; còn đột biến sống vẫn thoát 0).
 // Dùng: node kiem/dot-bien-may-chu.mjs [NHÓM …]   (vd A1; bỏ trống = mọi nhóm). Thoát 0 CHỈ khi gốc xanh và MỌI đột biến DIỆT.
+// Pha B: phần tử thứ 5 (tuỳ chọn) = mảng tệp test của đột biến (vắng ⇒ test-may-chu/*.test.mjs); gốc chạy MỌI bộ tệp test có mặt, mỗi đột biến
+// so số test với gốc CỦA BỘ ĐÓ; bộ có test-web/ hạn 240 s; con chạy với WEB_DOI_CHUNG=0 (cấy đối chứng của test trình duyệt tắt).
 // Chép từng tệp của `git ls-files` (đã theo dõi + chưa theo dõi mà không bị .gitignore) sang thư mục tạm — không rsync/cp -R,
 // không symlink (symlink ghi xuyên về nguồn thật). Bản chép CHƯA đột biến chạy trước: không xanh ⇒ «GỐC ĐỎ», thoát 1.
 import fs from 'node:fs';
@@ -9,10 +11,12 @@ import path from 'node:path';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000;
+const REPO = path.dirname(path.dirname(fileURLToPath(import.meta.url))), NODE = process.execPath, HAN_MS = 60000, HAN_WEB_MS = 240000;
+const BO_MAC_DINH = ['test-may-chu/*.test.mjs'];
 const KHO = 'may-chu/kho.mjs', GOI = 'may-chu/goi.mjs';
 const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-chu.mjs', CH = 'may-chu/cau-hinh.mjs';
 const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs', KER = 'may-chu/kernel.mjs', BAN = 'may-chu/ban.mjs';
+const DOM = 'web/dom.js', MAN_CHU = 'web/man-chu.js', T_KHUNG = ['test-web/khung.test.mjs'], T_MAN_CHU = ['test-web/man-chu.test.mjs'], T_TINH = ['test-web/tinh.test.mjs'];
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -574,6 +578,16 @@ const NHOM = {
     ['ket-noi-tran-hang', KER, 'const TRAN_KET_NOI = 32;', 'const TRAN_KET_NOI = 33;'],
     ['ket-noi-tran-goi', KER, '  s.maxConnections = TRAN_KET_NOI;\n', ''],
   ],
+  // Pha B — B1 lượt 1a: BAN.json (máy chủ) · dom.el cấm thuộc tính (hàm + chỗ gọi) · con chuỗi thành nút chữ · nhãn «chưa nối» · soatTinh (R4)
+  B1: [
+    ['ban-ten-dat-truoc-ham', BAN, 'const tenDatTruoc = t => t !== BAN_JSON && t.toLowerCase() === BAN_JSON;', 'const tenDatTruoc = t => false;'],
+    ['ban-ten-dat-truoc-goi', BAN, "  if (ten.some(tenDatTruoc)) throw new BanHong('ten_dat_truoc');\n", ''],
+    ['dom-thuoc-tinh-ham', DOM, "const kiemThuocTinh = k => { if (k === 'style' || k.startsWith('on') || k === 'innerHTML') throw new Error('thuộc tính cấm: ' + k); };", 'const kiemThuocTinh = k => { };', T_KHUNG],
+    ['dom-thuoc-tinh-goi', DOM, '    kiemThuocTinh(k);\n', '', T_KHUNG],
+    ['dom-chu-ham', DOM, 'for (const c of con) if (c !== null && c !== false && c !== undefined) n.append(c);', "for (const c of con) if (c !== null && c !== false && c !== undefined) { if (typeof c === 'string') n.insertAdjacentHTML('beforeend', c); else n.append(c); }", T_MAN_CHU],
+    ['man-chu-chua-noi-ham', MAN_CHU, "chua_noi: 'chưa nối'", "chua_noi: '0'", T_MAN_CHU],
+    ['soat-tinh-ham', 'test-web/tinh.test.mjs', '/insertAdjacentHTML\\(/, ', '', T_TINH],
+  ],
 };
 
 const chon = process.argv.slice(2);
@@ -595,15 +609,15 @@ function chep(dich) {
 // Tệp test không nạp được (ca «not ok» mang tên tệp *.test.mjs, hoặc số test chạy ít hơn bản gốc) ⇒ LỖI ĐO: đỏ vì import hỏng, không phải test bắt.
 // `node --test` chạy trong NHÓM tiến trình riêng (detached): xong hay hết giờ đều giết CẢ nhóm — SIGKILL riêng cha bỏ lại tiến trình
 // con từng tệp test (treo mãi). TMPDIR + WO_GOC (chung.mjs) trỏ thư mục riêng của lượt, dọn sau lượt: test bị giết không bỏ lại wo-*.
-function chayCon(thuMuc) {
-  const goc = fs.mkdtempSync('/tmp/wd-');
+function chayCon(thuMuc, tep) {
+  const goc = fs.mkdtempSync('/tmp/wd-'), han = tep.some(t => t.startsWith('test-web/')) ? HAN_WEB_MS : HAN_MS;
   return new Promise(ok => {
-    const con = spawn(NODE, ['--test', '--test-reporter=tap', 'test-may-chu/*.test.mjs'], { cwd: thuMuc, detached: true, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, TMPDIR: goc, WO_GOC: goc } });
+    const con = spawn(NODE, ['--test', '--test-reporter=tap', ...tep], { cwd: thuMuc, detached: true, stdio: ['ignore', 'pipe', 'ignore'], env: { ...process.env, TMPDIR: goc, WO_GOC: goc, WEB_DOI_CHUNG: '0' } });
     const ra = [];
     let het = false;
     // ESRCH: nhóm đã hết · EPERM: macOS trả khi nhóm chỉ còn tiến trình xác (zombie) chờ launchd gặt — đều là đã chết.
     const giet = () => { try { process.kill(-con.pid, 'SIGKILL'); } catch (e) { if (e.code !== 'ESRCH' && e.code !== 'EPERM') throw e; } };
-    const t = setTimeout(() => { het = true; giet(); }, HAN_MS);
+    const t = setTimeout(() => { het = true; giet(); }, han);
     const xong = r => { clearTimeout(t); if (con.pid) giet(); fs.rmSync(goc, { recursive: true, force: true }); ok(r); };
     con.stdout.on('data', d => ra.push(d));
     con.on('error', e => xong({ error: e }));
@@ -611,8 +625,8 @@ function chayCon(thuMuc) {
   });
 }
 
-async function chayTest(thuMuc, soGoc = 0) {
-  const r = await chayCon(thuMuc);
+async function chayTest(thuMuc, tep, soGoc = 0) {
+  const r = await chayCon(thuMuc, tep);
   if (r.error || r.signal) return { kq: 'LỖI ĐO', ghi: r.error?.code ?? r.signal };
   const tong = Number(/^# tests (\d+)$/m.exec(r.stdout)?.[1] ?? 0);
   if (r.status === 0) return { kq: 'SỐNG', ghi: '', tong };
@@ -622,20 +636,32 @@ async function chayTest(thuMuc, soGoc = 0) {
   return r.status === 1 && hong > 0 ? { kq: 'DIỆT', ghi: dau } : { kq: 'LỖI ĐO', ghi: `rc ${r.status}, fail ${hong}` };
 }
 
+// Kiểm cú pháp sau đột biến. .js của web/ là ES module không có package.json: `node --check tệp.js` trả 0 cả khi sai cú pháp (đo 13/11,
+// Node 26) ⇒ đọc qua stdin với --input-type=module. Tệp không phải JS (css/html…) ⇒ không kiểm.
+function cuPhapDung(f) {
+  if (f.endsWith('.mjs')) return spawnSync(NODE, ['--check', f]).status === 0;
+  if (f.endsWith('.js')) return spawnSync(NODE, ['--input-type=module', '--check'], { input: fs.readFileSync(f) }).status === 0;
+  return true;
+}
+
 async function chayHet(tam) {
   chep(tam);
-  const goc = await chayTest(tam);
-  if (goc.kq !== 'SỐNG' || !(goc.tong > 0)) { console.log(`GỐC ĐỎ · ${goc.kq} · ${goc.ghi} · ${goc.tong ?? 0} test`); return 1; }
-  console.log(`gốc XANH · ${goc.tong} test`);
+  const tongGoc = new Map();   // bộ tệp test (nối bằng dấu cách) ⇒ số test của bản chép chưa đột biến
+  for (const bo of new Set(DS.map(d => (d[4] ?? BO_MAC_DINH).join(' ')))) {
+    const goc = await chayTest(tam, bo.split(' '));
+    if (goc.kq !== 'SỐNG' || !(goc.tong > 0)) { console.log(`GỐC ĐỎ · ${bo} · ${goc.kq} · ${goc.ghi} · ${goc.tong ?? 0} test`); return 1; }
+    console.log(`gốc XANH · ${goc.tong} test · ${bo}`);
+    tongGoc.set(bo, goc.tong);
+  }
   let xau = 0;
-  for (const [ten, tep, cu, moi] of DS) {
+  for (const [ten, tep, cu, moi, bo = BO_MAC_DINH] of DS) {
     const f = path.join(tam, tep), nguyen = fs.readFileSync(f, 'utf8'), n = nguyen.split(cu).length - 1;
     let kq;
     if (n !== 1) kq = { kq: 'LỖI ĐO', ghi: `khớp ${n} chỗ` };
     else {
       fs.writeFileSync(f, nguyen.replace(cu, () => moi));
       try {
-        kq = spawnSync(NODE, ['--check', f]).status !== 0 ? { kq: 'LỖI ĐO', ghi: 'lỗi cú pháp sau đột biến' } : await chayTest(tam, goc.tong);
+        kq = !cuPhapDung(f) ? { kq: 'LỖI ĐO', ghi: 'lỗi cú pháp sau đột biến' } : await chayTest(tam, bo, tongGoc.get(bo.join(' ')));
       } finally { fs.writeFileSync(f, nguyen); }
     }
     if (kq.kq !== 'DIỆT') xau++;

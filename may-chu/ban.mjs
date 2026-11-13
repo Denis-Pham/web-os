@@ -22,6 +22,8 @@ const loaiTep = t => { const d = path.extname(t); return Object.hasOwn(DUOI, d) 
 // Tên tệp bản: docBan + route xem tệp dùng chung (chỉ tệp ở gốc bản, đuôi trong DUOI).
 export const tenDung = t => typeof t === 'string' && TEN.test(t) && !t.includes('..') && !!loaiTep(t);
 const BAN_JSON = 'ban.json';   // ban.json của neo KHÔNG tin: bỏ khi đọc bản chờ; máy chủ tự viết vào bản đã duyệt
+// Tên trùng ban.json khác hoa thường (BAN.json): lọt lọc trên nhưng APFS không phân biệt hoa thường ⇒ ghi ban.json EEXIST ⇒ 500. Chặn thành 422.
+const tenDatTruoc = t => t !== BAN_JSON && t.toLowerCase() === BAN_JSON;
 
 class BanHong extends Error { constructor(lyDo) { super(lyDo); this.lyDo = lyDo; } }
 const loiHong = e => (e instanceof BanHong ? new LoiGoi(422, 'ban_hong', { ly_do: e.lyDo }) : e);
@@ -63,6 +65,7 @@ async function docBan(thuMuc, uid) {
   try { ten = await lietKe(thuMuc, TRAN_SO_TEP + 1); } catch { throw new BanHong('khong_mo'); }   // +1: chỗ cho ban.json
   if (ten === null) throw new BanHong('qua_nhieu_tep');
   ten = ten.filter(t => t !== BAN_JSON).sort();
+  if (ten.some(tenDatTruoc)) throw new BanHong('ten_dat_truoc');
   if (!ten.length) throw new BanHong('rong');
   if (ten.length > TRAN_SO_TEP) throw new BanHong('qua_nhieu_tep');
   const ds = [];

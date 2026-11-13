@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f3f0e8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1d241f" media="(prefers-color-scheme: dark)">
+<title>Sổ — Không gian AI cá nhân</title>
+<link rel="stylesheet" href="nen.css">
+<link rel="stylesheet" href="man.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="bieu-tuong.svg" type="image/svg+xml">
+<script type="module" src="khung.js"></script>
+</head>
+<body>
+<button class="che" id="che-menu" type="button" aria-label="Đóng danh sách mạch" data-act="dong-menu" hidden></button>
+<aside class="thanh-trai" id="danh-sach-mach" aria-label="Các mạch cá nhân">
+  <a class="hieu" href="#chu" aria-label="Sổ — Màn chủ">
+    <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect x="4" y="3" width="29" height="34" rx="3" stroke="currentColor" stroke-width="2"/><path d="M11 3v34M17 13h10M17 20h10M17 27h6" stroke="currentColor" stroke-width="2"/></svg>
+    <span>Sổ</span>
+  </a>
+  <p class="nhan-nav">Không gian của anh</p>
+  <nav id="cac-mach" aria-label="Điều hướng chính"></nav>
+  <div class="cuoi-thanh">
+    <a class="lk-ngoai" id="lk-hub" data-chua-noi>Không gian gia đình · chưa nối</a>
+    <a class="lk-ban" href="#ban">Bản giao diện</a>
+  </div>
+</aside>
+<div class="workspace">
+  <header class="dau-trang">
+    <button class="nut-menu" type="button" data-act="mo-menu" aria-label="Mở danh sách mạch" aria-expanded="false" aria-controls="danh-sach-mach"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8"/></svg></button>
+    <span class="ten-trang">Không gian cá nhân <span aria-hidden="true">/</span> <span id="ten-man">Hôm nay</span></span>
+    <span id="trang-thai-he">chưa nối</span>
+  </header>
+  <main id="noi-dung" tabindex="-1"></main>
+  <footer class="chan-trang"><span>Dữ liệu ở máy chủ của anh</span></footer>
+</div>
+<p id="tin" class="tin" role="status"></p>
+<div id="thanh-hoan-tac" class="thanh-hoan-tac" hidden><span id="noi-dung-hoan-tac"></span><button type="button" data-act="hoan-tac">Hoàn tác</button></div>
+<dialog id="hop" aria-labelledby="tieu-de-hop"></dialog>
+</body>
+</html>
