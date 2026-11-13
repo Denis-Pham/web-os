@@ -19,6 +19,7 @@ const CHAN = [];
 globalThis.fetch = gac(globalThis.fetch, CHAN);
 const { DAU_GHI, moiTruong, goi, ve, AUD_HUB } = await import('./chung.mjs');
 const { taoGoiAI, docKhoaAI } = await import('../may-chu/hoi-ai.mjs');
+const { taoDeXuat } = await import('../may-chu/goi.mjs');
 
 const mt = moiTruong();
 // Model giả: mỗi ca đặt `traLoi` (messages ⇒ chuỗi, có thể là lời hứa); `daGui` giữ messages máy chủ đã gửi.
@@ -123,6 +124,19 @@ test('B3-T2 Áp dụng kiểm lại: việc xong sau đề xuất ⇒ 409 de_xua
   r = await post(m, '/api/hoan', { ma_hoan: r.json.ma_hoan });
   assert.equal(r.ma, 200, r.than);
   assert.deepEqual(noiDung(dong(B.id)), noiDung(B));
+});
+
+// Sửa cuối I1: Neo lưu được ops anh không áp được (de_xuat_tao chỉ kiemOps) ⇒ 403 quyen của apGoi KHÔNG được lộ ra (web coi mọi 403 là Hết phiên).
+test('B3-Đ3 Áp dụng đề xuất Neo anh không áp được (tien_do gắn việc không có) ⇒ 409 de_xuat_khong_ap_dung; kho + đề xuất y trước', async () => {
+  const { id } = taoDeXuat(m.db, { mach: 'cos', chu_the: 'neo', noi_dung: 'Neo gắn tiến độ', ops: [{ loai: 'them', bang: 'tien_do', truong: { doi_tuong: 'viec:khong-co' } }] }, new Date().toISOString());
+  const dx = () => m.db.prepare('SELECT * FROM de_xuat WHERE id = ?').get(id);
+  const truoc = { ...chup(), tien_do: dem('tien_do') }, dx0 = dx();
+  const r = await post(m, `/api/de-xuat/${id}/ap-dung`, { khoa_lap: randomUUID() });
+  assert.equal(r.ma, 409, r.than);
+  assert.equal(r.json.loi, 'de_xuat_khong_ap_dung');
+  assert.deepEqual({ ...chup(), tien_do: dem('tien_do') }, truoc);
+  assert.deepEqual(dx(), dx0);
+  assert.equal(dx0.trang_thai, 'cho');
 });
 
 test('B3-T3 cổng: 423 cos_ghi tắt · 503 chưa cấu hình · 403 CSRF · 401 vé Hub · 400 khoá lạ · lượt đồng thời ⇒ một 429', async () => {

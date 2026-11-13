@@ -13,6 +13,8 @@ function tinLoi(e) {
   if (e instanceof LoiMang) return 'Mất kết nối — chưa hỏi được.';
   if (e instanceof LoiApi && (e.ma === 503 || e.ma === 429)) return 'AI đang bận / chưa sẵn';
   if (e instanceof LoiApi && e.ma === 409 && (e.loi === 'de_xuat_ai' || e.loi === 'de_xuat_da_xu_ly')) return 'Đề xuất không còn hợp lệ (việc đã đổi)';
+  if (e instanceof LoiApi && e.ma === 409 && e.loi === 'de_xuat_khong_ap_dung') return 'Đề xuất này không áp dụng được — anh bấm Bỏ qua.';
+  if (e instanceof LoiApi && e.ma === 409 && e.loi === 'phien_ban') return 'Việc đã đổi sau khi có đề xuất — anh Bỏ qua rồi hỏi lại.';
   return 'Máy chủ báo lỗi: ' + (e?.loi ?? e?.message ?? 'không rõ') + '.';
 }
 

@@ -272,7 +272,10 @@ export function apDungDeXuat(db, { id, khoa_lap, chu_the, nguon }, bayGio) {
   const dx = layDeXuat(db, id);
   kiemConCho(db, dx, khoa_lap);
   if (dx.chu_the === 'ai') kiemDeXuatAI(db, JSON.parse(dx.ops));   // việc đã xong/xoá sau khi AI đề xuất ⇒ 409 viec_het (đồng bộ, một kết nối ⇒ không xen)
-  const kq = apGoi(db, { khoa_lap, chu_the, nguon, ops: JSON.parse(dx.ops) }, bayGio, goi_id => doiDeXuat(db, dx, 'ap_dung', goi_id, chu_the, bayGio));
+  // 403 từ apGoi = ops đã lưu (Neo lưu được ops anh không áp được) chứ không phải lỗi phiên ⇒ 409; giao dịch đã lùi, đề xuất giữ «chờ» (soát cuối I1).
+  let kq;
+  try { kq = apGoi(db, { khoa_lap, chu_the, nguon, ops: JSON.parse(dx.ops) }, bayGio, goi_id => doiDeXuat(db, dx, 'ap_dung', goi_id, chu_the, bayGio)); }
+  catch (e) { throw e instanceof LoiGoi && e.ma === 403 ? new LoiGoi(409, 'de_xuat_khong_ap_dung', e.chi_tiet) : e; }
   // khoa_lap lặp (bấm hai lần) ⇒ apGoi trả gói cũ: chỉ nhận khi đó đúng là gói của đề xuất này.
   if (kq.lap && kq.goi_id !== dx.goi_id) throw new LoiGoi(409, 'khoa_lap_trung');
   return { goi_id: kq.goi_id, ma_hoan: kq.ma_hoan };

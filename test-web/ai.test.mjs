@@ -101,3 +101,19 @@ test('B3-T7 AI trả hạn ngoài miền ⇒ «AI chưa có đề xuất hợp l
   });
   assert.equal(dem('de_xuat'), n0);
 });
+
+// Sửa cuối I1: đề xuất Neo máy chủ không áp được ⇒ 409 de_xuat_khong_ap_dung (trước: 403 quyen ⇒ api.js coi là Hết phiên, xoá trang).
+test('B3-T8 Áp dụng đề xuất Neo không áp được ⇒ hộp báo «không áp dụng được — anh bấm Bỏ qua», KHÔNG sang Hết phiên, kho y trước', async () => {
+  taoDeXuat(m.may.db, { mach: 'cos', chu_the: 'neo', noi_dung: 'Neo gắn tiến độ việc đã mất', ops: [{ loai: 'them', bang: 'tien_do', truong: { doi_tuong: 'viec:khong-co' } }] }, new Date().toISOString());
+  traLoi = () => '{}';
+  const truoc = await trangThai(), ghi0 = dem('goi_ghi');
+  await moCos(async page => {
+    await hoiAI(page);
+    await muc(page, 'Neo gắn tiến độ việc đã mất').locator('[data-act="ap-dung"]').click();
+    await page.locator('#hop [data-loi]', { hasText: 'Đề xuất này không áp dụng được — anh bấm Bỏ qua.' }).waitFor();
+    assert.equal(await page.locator('#noi-dung > section[data-man="het-phien"]').count(), 0, 'không sang Hết phiên');
+    assert.equal(await muc(page, 'Neo gắn tiến độ việc đã mất').count(), 1, 'mục còn trong hộp để Bỏ qua');
+  });
+  assert.deepEqual(await trangThai(), truoc);
+  assert.equal(dem('goi_ghi'), ghi0);
+});

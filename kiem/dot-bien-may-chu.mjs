@@ -678,6 +678,9 @@ const NHOM = {
     // B3 lượt 3c: giao diện web/ai.js (T5–T7 trình duyệt thật)
     ['ai-ui-bo-qua-goi', 'web/ai.js', "dangKyHanhDong('bo-qua', boQua)", "dangKyHanhDong('bo-qua', apDung)", ['test-web/ai.test.mjs']],
     ['ai-ui-ap-dung-ham', 'web/ai.js', "const id = n.closest('[data-de-xuat]').dataset.deXuat, khoa_lap", "const id = document.querySelector('#hop [data-de-xuat]').dataset.deXuat, khoa_lap", ['test-web/ai.test.mjs']],
+    // Sửa cuối I1: 403 của apGoi khi Áp dụng ⇒ 409 de_xuat_khong_ap_dung (hàm: bỏ ném lại ⇒ B3-Đ3) · câu của tinLoi (chỗ gọi: đổi mã ⇒ B3-T8)
+    ['ai-khong-ap-dung-ham', GOI, "e instanceof LoiGoi && e.ma === 403 ? new LoiGoi(409, 'de_xuat_khong_ap_dung', e.chi_tiet) : e", 'e', T_AI],
+    ['ai-khong-ap-dung-goi', 'web/ai.js', "e.loi === 'de_xuat_khong_ap_dung') return", "e.loi === 'de_xuat_khong_ap_dung_x') return", ['test-web/ai.test.mjs']],
   ],
   // B4 lượt 4d: đột biến BỘ ĐO (kiem/) — mỗi phép (hàm) + chỗ gọi; giết bằng test mỏng test-web/doi-chung-<lỗ>.test.mjs (chạy kiem/doi-chung.mjs theo cấy của lỗ).
   B4: [

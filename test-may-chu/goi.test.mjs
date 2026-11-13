@@ -456,7 +456,7 @@ test('15 apDungDeXuat: chạy đúng ops đã lưu (một gói anh, Hoàn tác �
 test('16 apDungDeXuat: kiemOps + kiemQuyen chạy lại; chỉ anh · web/de_xuat; khoa_lap của gói khác ⇒ 409, đề xuất vẫn cho; không có ⇒ 404', () => {
   const db = moKho();
   const ct = dx(db, [them('cai_tien', CT)]);   // neo đề xuất được, nhưng anh không có quyền them cai_tien
-  hong(db, () => apDung(db, ct), 403, 'quyen', { bang: 'cai_tien', loai: 'them' });
+  hong(db, () => apDung(db, ct), 409, 'de_xuat_khong_ap_dung', { bang: 'cai_tien', loai: 'them' });   // 403 của apGoi ⇒ 409 (soát cuối I1)
   const bi = dx(db, V({ tieu_de: 'A' }));
   db.prepare('UPDATE de_xuat SET ops = ? WHERE id = ?').run(JSON.stringify(V({ tieu_de: 'A', han: '2101-01-01' })), bi);   // kho bị sửa ngoài đường
   hong(db, () => apDung(db, bi), 400, 'luoc_do', { thao_tac: 0, ly_do: 'gia_tri', truong: 'han' });
