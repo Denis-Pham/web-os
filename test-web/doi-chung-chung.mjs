@@ -14,7 +14,7 @@ const KHOA = path.join(os.tmpdir(), 'web-os-doi-chung.khoa');   // tệp khoá c
 
 // Khoá ra đời CÓ SẴN pid (ghi tệp riêng rồi link nguyên tử) ⇒ đọc ra không phải số dương = khoá hỏng/mồ côi, gỡ.
 const goKhoa = () => { try { fs.unlinkSync(KHOA); } catch (e) { if (e.code !== 'ENOENT') throw e; } };
-async function vaoHang() {
+export async function vaoHang() {
   const rieng = KHOA + '.' + process.pid;
   fs.writeFileSync(rieng, String(process.pid));
   try {
@@ -30,6 +30,8 @@ async function vaoHang() {
     }
   } finally { fs.unlinkSync(rieng); }
 }
+// Nhả khoá nếu chính tiến trình này giữ (gọi ở finally sau vaoHang). Dùng chung với test-web/chay-do-url.test.mjs.
+export function nhaKhoa() { let chu = null; try { chu = fs.readFileSync(KHOA, 'utf8'); } catch (e) { if (e.code !== 'ENOENT') throw e; } if (chu === String(process.pid)) goKhoa(); }
 
 export function doiChung(ten, cay) {
   test(`đối chứng bộ đo: ${ten}`, { timeout: 3600000 }, async () => {
@@ -39,6 +41,6 @@ export function doiChung(ten, cay) {
       const ra = (r.stdout || '') + (r.stderr || '');
       assert.equal(r.status, 0, ra.slice(0, 2000));
       assert.ok(ra.includes('ĐỐI CHỨNG ĐẠT'), ra.slice(0, 2000));
-    } finally { let chu = null; try { chu = fs.readFileSync(KHOA, 'utf8'); } catch (e) { if (e.code !== 'ENOENT') throw e; } if (chu === String(process.pid)) goKhoa(); }
+    } finally { nhaKhoa(); }
   });
 }

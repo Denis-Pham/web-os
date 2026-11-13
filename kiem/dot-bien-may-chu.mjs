@@ -707,6 +707,11 @@ const NHOM = {
     ['url-cookie-quyen-goi', CHAY_DO, '    if (!quyenCookie(st)) return null;\n', '', T_URL],
     ['url-cam-pha-va-ham', CHAY_DO, 'url && (pha || va) ?', 'false ?', T_URL],
     ['url-cam-pha-va-goi', CHAY_DO, ' if (loiCD) thoat(loiCD);', '', T_URL],
+    // Vòng sửa 1: tham số lạ ⇒ rc 2 (hàm: bỏ nhánh `--x=` · chỗ gọi: bỏ lời gọi) · DEBUG có «pw» cùng --cookie-tep ⇒ rc 2 (hàm: điều kiện luôn sai).
+    // Chỗ gọi của DEBUG (dời kiểm xuống SAU addCookies) phải sửa hai chỗ — khuôn một chuỗi không biểu diễn được ⇒ chạy tay, ghi ở báo cáo vòng sửa 1.
+    ['url-tham-so-la-ham', CHAY_DO, '/^--[^=]+=/.test(x) || ', '', T_URL],
+    ['url-tham-so-la-goi', CHAY_DO, 'const la = thamSoLa(process.argv.slice(2));', 'const la = undefined;', T_URL],
+    ['url-debug-pw-ham', CHAY_DO, "/pw/i.test(process.env.DEBUG ?? '')", 'false', T_URL],
   ],
 };
 

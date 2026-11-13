@@ -17,7 +17,7 @@ const thamSo = ten => { const i = process.argv.indexOf(ten); return i < 0 ? null
 const pha = process.argv.includes('--pha');
 // Trang thật (Pha C, lễ W): --url <gốc> [--cookie-tep <tệp>] ⇒ CHỈ ĐỌC: không dựng máy, không datBan/datLai/goiAI; mọi yêu cầu tới gốc khác
 // GET/HEAD bị huỷ và ghi vào `ghi` (cỡ trượt); phép cần ghi hay dữ liệu gieo ⇒ bỏ, liệt kê ở `bo` (dòng JSON có thêm ghi, bo). Giá trị cookie
-// CF_Authorization KHÔNG in, KHÔNG vào JSON. Tham số sai ⇒ rc 2 trước khi mở trình duyệt.
+// CF_Authorization KHÔNG in, KHÔNG vào JSON. Tham số sai hay lạ, DEBUG có «pw» cùng --cookie-tep ⇒ rc 2 trước khi mở trình duyệt.
 const thoat = s => { console.error(s); process.exit(2); };
 const docGoc = s => {   // chỉ gốc: https://host hay http://127.0.0.1:<cổng>; có đường khác /, truy vấn, #, tài khoản ⇒ null
   let u; try { u = new URL(s); } catch { return null; }
@@ -35,10 +35,19 @@ const docCookie = t => {   // O_NOFOLLOW: symlink ⇒ lỗi · O_NONBLOCK: FIFO 
     return /^[\w.~+/=-]+$/.test(v) ? v : null;
   } finally { fs.closeSync(fd); }
 };
+// Vòng sửa 1: thamSo khớp đúng chuỗi ⇒ `--url=https://h`, `-url`, cờ gõ sai từng bị bỏ lặng ⇒ chạy chế độ cũ, rc 0 mà trang thật không được đo.
+// Tham số lạ ⇒ rc 2 TRƯỚC mọi kiểm khác. Dạng `--tên=…` cấm ở MỌI vị trí, kể cả chỗ giá trị (`--cu --url=…` ⇒ cu lạ, chạy chế độ cũ);
+// thông báo không in phần sau `=` (có thể là giá trị bí mật gõ nhầm).
+const CO_GIA_TRI = ['--url', '--cookie-tep', '--va', '--cu', '--co'];   // cờ nhận giá trị: phần tử kế là giá trị, không xét là cờ
+const thamSoLa = a => a.find((x, i) => /^--[^=]+=/.test(x) || (x.startsWith('-') && x !== '--pha' && !CO_GIA_TRI.includes(x) && !CO_GIA_TRI.includes(a[i - 1])));
+const la = thamSoLa(process.argv.slice(2));
+if (la !== undefined) thoat(`tham số lạ: ${la.replace(/=.*/s, '=…')} — nhận --pha · --url <gốc> · --cookie-tep <tệp> · --va <tệp> · --cu <…> · --co <…> (không nhận dạng --tên=giá trị)`);
 const coUrl = process.argv.includes('--url'), tepCookie = thamSo('--cookie-tep');
 const loiCD = loiCheDo(coUrl, pha, process.argv.includes('--va')); if (loiCD) thoat(loiCD);
 const goc = coUrl ? docGoc(thamSo('--url')) ?? thoat('--url: chỉ gốc https://<host> hay http://127.0.0.1:<cổng> (không đường, truy vấn, #)') : null;
 if (tepCookie !== null && !coUrl) thoat('--cookie-tep chỉ đi cùng --url');
+// DEBUG=pw:protocol (hay pw:*) ⇒ Playwright in thông điệp CDP ra stderr, có lệnh đặt cookie mang giá trị CF_Authorization ⇒ từ chối TRƯỚC khi đọc tệp.
+if (tepCookie !== null && /pw/i.test(process.env.DEBUG ?? '')) thoat('--cookie-tep: biến DEBUG có «pw» ⇒ Playwright in giá trị cookie ra stderr; chạy lại bằng `env -u DEBUG node kiem/chay-do.mjs …`');
 const cookie = tepCookie === null ? null : docCookie(tepCookie) ??
   thoat('--cookie-tep: phải là tệp thường của chính uid này, không quyền nhóm/khác (0600), không symlink, một dòng giá trị cookie');
 // Mọi yêu cầu tới gốc khác GET/HEAD ⇒ huỷ + ghi vào `ghi`. Gắn SAU ganCanh (trangMoi) ⇒ chạy TRƯỚC nó (Playwright: route gắn sau thắng);
