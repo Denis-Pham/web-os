@@ -21,6 +21,7 @@ const PHIEN = 'web/phien.js', API_WEB = 'web/api.js', KHUNG = 'web/khung.js', T_
 const SW = 'web/sw.js', T_SW = ['test-web/sw.test.mjs'];
 const BAN_UI = 'web/ban.js', T_BAN_UI = ['test-web/ban-ui.test.mjs'], T_PHUC_HOI = ['test-web/phuc-hoi.test.mjs'];
 const VL = 'web/viec-lich.js', VG = 'web/viec-ghi.js', T_VL = ['test-web/viec-lich.test.mjs'];
+const HA = 'may-chu/hoi-ai.mjs', T_AI = ['test-may-chu/hoi-ai.test.mjs'];
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -92,7 +93,7 @@ const NHOM = {
     ['hoan-cot-xoa-luc', GOI, "'xoa_luc', ...(b === 'viec'", "...(b === 'viec'"],
     ['hoan-cot-xong-luc', GOI, "['xong_luc'] : []", '[] : []'],
     // kiemOps (R5, R11): từng điều kiện
-    ['ops-mang', GOI, '!Array.isArray(ops) || ', ''],
+    ['ops-mang', GOI, '!Array.isArray(ops) || ops.length < 1', 'ops.length < 1'],   // B3 3a: kiemDeXuatAI cũng có «!Array.isArray(ops) || »
     ['ops-it-nhat-1', GOI, 'ops.length < 1 || ', ''],
     ['ops-tran-40', GOI, 'ops.length > 40', 'ops.length > 41'],
     ['ops-loai', GOI, ' || !Object.hasOwn(KHOA_OP, op.loai)', ''],
@@ -316,8 +317,8 @@ const NHOM = {
     ['dx-duyet-nguon', GOI, "  kiemNguon(nguon);\n  if (chu_the !== 'anh'", "  if (chu_the !== 'anh'"],
     ['dx-duyet-chu-the', GOI, "  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  kiemNguon(nguon);\n", '  kiemNguon(nguon);\n'],
     // taoDeXuat: R11 qua kiemOps, từng trường
-    ['dx-tao-kiem-ops', GOI, 'JSON.stringify(kiemOps(ops)), bayGio', 'JSON.stringify(ops), bayGio'],
-    ['dx-tao-chu-the', GOI, "  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  if (!hopLe({ chu: 200", '  if (!hopLe({ chu: 200'],
+    ['dx-tao-kiem-ops', GOI, 'const opsChuan = kiemOps(ops);', 'const opsChuan = ops;'],   // B3 3a: taoDeXuat kiemOps một lần (opsChuan)
+    ['dx-tao-chu-the', GOI, "  if (!CHU_THE_DE_XUAT.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });\n  if (!hopLe({ chu: 200", '  if (!hopLe({ chu: 200'],
     ['dx-tao-mach', GOI, "  if (!hopLe({ chu: 200, it: 1, bb: true }, mach)) throw saiLuocDo({ ly_do: 'mach' });\n", ''],
     ['dx-tao-noi-dung', GOI, "  if (!hopLe({ chu: 2000, bb: true }, noi_dung)) throw saiLuocDo({ ly_do: 'noi_dung' });\n", ''],
     // api.mjs — cổng cosGhi: hàm + MỌI chỗ gọi (bắt buộc: /api/hoan) + thứ tự (trước khi đọc thân) + chỉ-đọc không qua cổng
@@ -651,6 +652,22 @@ const NHOM = {
     ['viec-don-goi', VL, 'don() { donGhi(); dem = null;', 'donX() { donGhi(); dem = null;', T_VL],
     ['don-ghi-goi', VL, 'don() { donGhi(); dem = null;', 'don() { dem = null;', T_VL],
     ['cos-ghi-goi', VL, "datGhi((await goiApi('/api/phien')).cos_ghi === true)", 'datGhi(true)', T_VL],
+  ],
+  // B3 lượt 3a: Hỏi AI chỉ đề xuất — kiemDeXuatAI từng điều kiện (hàm) + chỗ gọi ở taoDeXuat / apDungDeXuat · docDeXuat chặn HTML (hàm) + chỗ gọi ·
+  // chu_the 'ai' · cấy «ghi ngay lúc đề xuất» (đối chứng Đ2) · route: cổng cos_ghi + 503 chưa cấu hình (R11). Không ai-ngay-ham (R11).
+  B3: [
+    ['ai-so-thao-tac-ham', GOI, "ops.length !== 1) throw sai('so_thao_tac');", "ops.length < 1) throw sai('so_thao_tac');", T_AI],
+    ['ai-loai-ham', GOI, "  if (op.loai !== 'sua' || op.bang !== 'viec') throw sai('loai');\n", '', T_AI],
+    ['ai-truong-ham', GOI, "  if (!laObj(op.truong) || Object.keys(op.truong).join() !== 'han') throw sai('truong');\n", '', T_AI],
+    ['ai-viec-het-ham', GOI, "  if (!v || v.xoa_luc !== null || v.xong_luc !== null) throw sai('viec_het');\n", '', T_AI],
+    ['ai-kiem-tao-goi', GOI, "  if (chu_the === 'ai') kiemDeXuatAI(db, opsChuan);\n", '', T_AI],
+    ['ai-kiem-ap-dung-goi', GOI, "  if (dx.chu_the === 'ai') kiemDeXuatAI(db, JSON.parse(dx.ops));", '', T_AI],
+    ['ai-html-ham', HA, '  if (/[<>]/.test(o.noi_dung)) return null;\n', '', T_AI],
+    ['ai-doc-de-xuat-goi', HA, 'const d = docDeXuat(chu);', 'const d = JSON.parse(chu);', T_AI],
+    ['ai-chu-the', HA, "chu_the: 'ai'", "chu_the: 'neo'", T_AI],
+    ['ai-ghi-ngay', HA, 'ops: d.ops }, iso);\n', "ops: d.ops }, iso);\n      (await import('./goi.mjs')).apGoi(ctx.db, { khoa_lap: crypto.randomUUID(), ops: d.ops, chu_the: 'anh', nguon: { loai: 'de_xuat' } }, iso);\n", T_AI],
+    ['ai-cos-ghi-goi', API, '{ kiemCosGhi(ctx); docJson(than, []); if (!ctx.goiAI)', '{ docJson(than, []); if (!ctx.goiAI)', T_AI],
+    ['ai-chua-cau-hinh-goi', API, " if (!ctx.goiAI) throw new LoiGoi(503, 'ai_chua_cau_hinh');", '', T_AI],
   ],
 };
 

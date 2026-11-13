@@ -6,6 +6,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { kiemYeuCau } from './xac-thuc.mjs';
 import { LoiGoi, apGoi, hoanTac, boQuaDeXuat, apDungDeXuat } from './goi.mjs';
+import { hoiAICos } from './hoi-ai.mjs';
 import { docTepXuat, LUOC_TRANG_THAI, LUOC_VIEC_BO } from './xuat.mjs';
 import { ghiBat, xem as xemBan, duyet as duyetBan, lui as luiBan, tuanTu, tepBan, tenDung, docTinh, SHA, MANIFEST } from './ban.mjs';
 
@@ -159,6 +160,8 @@ export const ROUTE = {
     const { khoa_lap } = docJson(than, ['khoa_lap']);
     return apDungDeXuat(ctx.db, { id, khoa_lap, ...ANH }, iso(ctx));
   },
+  // Hỏi AI CoS (B3): chỉ tạo dòng de_xuat 'cho', KHÔNG ghi kho; cổng cos_ghi như mọi route ghi.
+  'POST /api/hoi-ai': async ({ ctx, than }) => { kiemCosGhi(ctx); docJson(than, []); if (!ctx.goiAI) throw new LoiGoi(503, 'ai_chua_cau_hinh'); return hoiAICos(ctx); },
   'GET /api/cai-tien': ({ ctx, query }) => {
     docQuery(query, []);
     return { cai_tien: tat(ctx.db, 'SELECT id, ngay, mach, loai, mon, duong, noi_dung, trang_thai, phien_ban FROM cai_tien WHERE xoa_luc IS NULL ORDER BY tao_luc, id') };

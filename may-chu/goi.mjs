@@ -99,6 +99,7 @@ const QUYEN = {
   neo: { tin_anh: { viec: ['them', 'sua', 'xong', 'mo_lai'], lich: ['them', 'sua', 'xong', 'mo_lai'], cai_tien: ['them'] } },   // KHÔNG xoa: xoá qua đề xuất (A4)
 };
 const CHU_THE = ['anh', 'neo'];
+const CHU_THE_DE_XUAT = [...CHU_THE, 'ai'];   // CHỈ taoDeXuat nhận 'ai': AI không bao giờ ghi (apGoi/hoanTac), không duyệt (kiemNguoiDuyet)
 const quyenCua = (chu_the, loai) => (typeof chu_the === 'string' && typeof loai === 'string' && Object.hasOwn(QUYEN, chu_the) && Object.hasOwn(QUYEN[chu_the], loai) ? QUYEN[chu_the][loai] : null);
 
 export function kiemQuyen(chu_the, nguon, ops) {
@@ -206,14 +207,27 @@ export function hoanTac(db, { ma_hoan, chu_the, nguon }, bayGio) {
   });
 }
 
+// Đề xuất AI (thiết kế 13; R11): ĐÚNG 1 thao tác sửa hạn một việc còn hiện, chưa xong. Hạn trong miền laNgay đã do kiemOps kiểm (R11: không lặp).
+export function kiemDeXuatAI(db, ops) {
+  const sai = ly_do => new LoiGoi(409, 'de_xuat_ai', { ly_do });
+  if (!Array.isArray(ops) || ops.length !== 1) throw sai('so_thao_tac');
+  const [op] = ops;
+  if (op.loai !== 'sua' || op.bang !== 'viec') throw sai('loai');
+  if (!laObj(op.truong) || Object.keys(op.truong).join() !== 'han') throw sai('truong');
+  const v = db.prepare('SELECT xoa_luc, xong_luc FROM viec WHERE id = ?').get(op.id);
+  if (!v || v.xoa_luc !== null || v.xong_luc !== null) throw sai('viec_het');
+}
+
 // Đề xuất (thiết kế 2, 4, 13; R1): Neo/AI tạo, chỉ anh Áp dụng / Bỏ qua. ops qua kiemOps NGAY lúc tạo (R11: ngày ngoài miền không lưu được).
 export function taoDeXuat(db, { mach, chu_the, noi_dung, ops }, bayGio) {
-  if (!CHU_THE.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });
+  if (!CHU_THE_DE_XUAT.includes(chu_the)) throw saiLuocDo({ ly_do: 'chu_the' });
   if (!hopLe({ chu: 200, it: 1, bb: true }, mach)) throw saiLuocDo({ ly_do: 'mach' });
   if (!hopLe({ chu: 2000, bb: true }, noi_dung)) throw saiLuocDo({ ly_do: 'noi_dung' });
+  const opsChuan = kiemOps(ops);
+  if (chu_the === 'ai') kiemDeXuatAI(db, opsChuan);
   const id = randomUUID();
   db.prepare("INSERT INTO de_xuat (id, mach, chu_the, noi_dung, ops, trang_thai, tao_luc, sua_luc, nguoi_sua) VALUES (?, ?, ?, ?, ?, 'cho', ?, ?, ?)")
-    .run(id, mach, chu_the, noi_dung, JSON.stringify(kiemOps(ops)), bayGio, bayGio, chu_the);
+    .run(id, mach, chu_the, noi_dung, JSON.stringify(opsChuan), bayGio, bayGio, chu_the);
   return { id };
 }
 
@@ -255,6 +269,7 @@ export function apDungDeXuat(db, { id, khoa_lap, chu_the, nguon }, bayGio) {
   kiemNguoiDuyet(chu_the, nguon);
   const dx = layDeXuat(db, id);
   kiemConCho(db, dx, khoa_lap);
+  if (dx.chu_the === 'ai') kiemDeXuatAI(db, JSON.parse(dx.ops));   // việc đã xong/xoá sau khi AI đề xuất ⇒ 409 viec_het (đồng bộ, một kết nối ⇒ không xen)
   const kq = apGoi(db, { khoa_lap, chu_the, nguon, ops: JSON.parse(dx.ops) }, bayGio, goi_id => doiDeXuat(db, dx, 'ap_dung', goi_id, chu_the, bayGio));
   // khoa_lap lặp (bấm hai lần) ⇒ apGoi trả gói cũ: chỉ nhận khi đó đúng là gói của đề xuất này.
   if (kq.lap && kq.goi_id !== dx.goi_id) throw new LoiGoi(409, 'khoa_lap_trung');

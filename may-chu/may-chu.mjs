@@ -12,6 +12,7 @@ import { henSaoLuu } from './sao-luu.mjs';
 import { ghiSoDem } from './xuat.mjs';
 import { xuLy, tra } from './api.mjs';
 import { taoKernel } from './kernel.mjs';
+import { taoGoiAI, docKhoaAI } from './hoi-ai.mjs';
 
 const sach = s => String(s).slice(0, 200).replace(/[^\x21-\x7e]/g, '?');
 
@@ -45,7 +46,8 @@ async function nghe(server, duong, cong, gid) {
 }
 
 // dongHo (chỉ test): đồng hồ giả cho bộ hẹn sao lưu + hẹn 5 s của kernel.sock ({ now, setTimeout, clearTimeout }).
-export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.stdout.write(s + '\n'), dongHo } = {}) {
+// goiAI (chỉ test): model giả (messages ⇒ chuỗi); vắng ⇒ CLIProxyAPI với khoá tepKhoaAI; không có cả hai ⇒ /api/hoi-ai 503.
+export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.stdout.write(s + '\n'), dongHo, goiAI } = {}) {
   const ch = docCauHinh(duongCauHinh);
   const kiem = taoKiemJwt({ teamDomain: ch.teamDomain, aud: ch.aud, emails: ch.emails, ...(layJwks ? { layJwks } : {}) });
   const tepKho = path.join(ch.thuMucKho, 'kho.sqlite');
@@ -56,7 +58,8 @@ export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.st
   const moiGio = ch.thuMucXuat ? t => ghiSoDem(db, ch.thuMucXuat, t) : undefined;
   if (moiGio) { try { moiGio(bayGio()); } catch { ghiLog('LỖI ghi so đếm'); } }
   const hen = henSaoLuu(db, ch, { dongHo, ghiLog, moiGio });   // bản giờ + bản ngày 03:00 (A6)
-  const ctx = { ch, kiem, db, bayGio };
+  const goiAICua = goiAI ?? (ch.tepKhoaAI ? taoGoiAI({ khoa: () => docKhoaAI(ch.tepKhoaAI) }) : null);
+  const ctx = { ch, kiem, db, bayGio, goiAI: goiAICua };
   const server = http.createServer((req, res) => {
     const t0 = performance.now(), p = (req.url || '').split('?')[0];
     // Log: phương thức, đường (bỏ query), mã, thời gian — không header (vé), không thân.
