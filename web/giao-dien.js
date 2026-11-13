@@ -13,7 +13,7 @@ function traFocus() { traVe?.focus(); traVe = null; }
 export function moHop(tieuDe, ...con) {
   const h = $('hop');
   if (!h.open) traVe = document.activeElement;
-  h.replaceChildren(el('h2', { id: 'tieu-de-hop' }, tieuDe), ...con);
+  h.replaceChildren(el('h2', { id: 'tieu-de-hop' }, tieuDe), ...con.filter(c => c !== null && c !== false && c !== undefined));   // như el(): null/false/undefined ⇒ bỏ
   if (!h.open) h.showModal();
   h.querySelector('input, select, textarea, button')?.focus();
 }

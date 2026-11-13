@@ -54,6 +54,7 @@ test('B3-Đ1 model giả bị chặn: 200 de_xuat null với ĐÚNG ly_do, khôn
     ['(c) hạn 2101-01-01', deXuat([suaHan(A, '2101-01-01')]), 'gia_tri'],
     ['(c) hạn +010000-01', deXuat([suaHan(A, '+010000-01')]), 'gia_tri'],
     ['(c) hạn 9999-12-31', deXuat([suaHan(A, '9999-12-31')]), 'gia_tri'],
+    ['(c) hạn null', deXuat([suaHan(A, null)]), 'ngay'],
     ['(d) hai thao tác', deXuat([suaHan(A, '2026-11-21'), suaHan(B, '2026-11-26')]), 'so_thao_tac'],
     ['(e) xoa', deXuat([{ loai: 'xoa', bang: 'viec', id: A.id, phien_ban: A.phien_ban }]), 'loai'],
     ['(f) sửa tieu_de', deXuat([{ loai: 'sua', bang: 'viec', id: A.id, phien_ban: A.phien_ban, truong: { tieu_de: 'Đổi tên' } }]), 'truong'],

@@ -53,6 +53,7 @@ test('B3-T5 Hỏi AI ⇒ hộp đề xuất; Bỏ qua không ghi; Áp dụng đ�
     await hoiAI(page);
     assert.equal(await muc(page, 'Dời hạn việc A thêm một ngày').count(), 1, 'đề xuất AI có trong hộp');
     assert.equal(await muc(page, 'Neo gợi ý dời việc B').count(), 1, 'đề xuất Neo chờ cũng được liệt kê');
+    assert.ok(!(await page.locator('#hop').textContent()).includes('false'), 'hộp đề xuất không có chữ "false" lạc');
     assert.deepEqual(await trangThai(), truoc, 'Hỏi AI chưa ghi gì');
     // Bỏ qua mục của AI
     const ghi0 = dem('goi_ghi');

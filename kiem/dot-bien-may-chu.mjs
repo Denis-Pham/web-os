@@ -659,6 +659,7 @@ const NHOM = {
     ['ai-so-thao-tac-ham', GOI, "ops.length !== 1) throw sai('so_thao_tac');", "ops.length < 1) throw sai('so_thao_tac');", T_AI],
     ['ai-loai-ham', GOI, "  if (op.loai !== 'sua' || op.bang !== 'viec') throw sai('loai');\n", '', T_AI],
     ['ai-truong-ham', GOI, "  if (!laObj(op.truong) || Object.keys(op.truong).join() !== 'han') throw sai('truong');\n", '', T_AI],
+    ['ai-han-null-ham', GOI, "  if (typeof op.truong.han !== 'string') throw sai('ngay');\n", '', T_AI],
     ['ai-viec-het-ham', GOI, "  if (!v || v.xoa_luc !== null || v.xong_luc !== null) throw sai('viec_het');\n", '', T_AI],
     ['ai-kiem-tao-goi', GOI, "  if (chu_the === 'ai') kiemDeXuatAI(db, opsChuan);\n", '', T_AI],
     ['ai-kiem-ap-dung-goi', GOI, "  if (dx.chu_the === 'ai') kiemDeXuatAI(db, JSON.parse(dx.ops));", '', T_AI],

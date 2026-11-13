@@ -207,13 +207,15 @@ export function hoanTac(db, { ma_hoan, chu_the, nguon }, bayGio) {
   });
 }
 
-// Đề xuất AI (thiết kế 13; R11): ĐÚNG 1 thao tác sửa hạn một việc còn hiện, chưa xong. Hạn trong miền laNgay đã do kiemOps kiểm (R11: không lặp).
+// Đề xuất AI (thiết kế 13; R11): ĐÚNG 1 thao tác sửa hạn một việc còn hiện, chưa xong. Hạn phải là chuỗi (null — xoá hạn — bị chặn ở đây, ly_do ngay);
+// miền ngày laNgay vẫn do kiemOps kiểm (R11: không lặp).
 export function kiemDeXuatAI(db, ops) {
   const sai = ly_do => new LoiGoi(409, 'de_xuat_ai', { ly_do });
   if (!Array.isArray(ops) || ops.length !== 1) throw sai('so_thao_tac');
   const [op] = ops;
   if (op.loai !== 'sua' || op.bang !== 'viec') throw sai('loai');
   if (!laObj(op.truong) || Object.keys(op.truong).join() !== 'han') throw sai('truong');
+  if (typeof op.truong.han !== 'string') throw sai('ngay');
   const v = db.prepare('SELECT xoa_luc, xong_luc FROM viec WHERE id = ?').get(op.id);
   if (!v || v.xoa_luc !== null || v.xong_luc !== null) throw sai('viec_het');
 }
