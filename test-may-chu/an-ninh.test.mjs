@@ -7,7 +7,7 @@ import path from 'node:path';
 import http from 'node:http';
 import { spawnSync } from 'node:child_process';
 import { taoKiemJwt } from '../may-chu/xac-thuc.mjs';
-import { TEAM, AUD, AUD_HUB, EMAIL, K1, K_LA, jwk, ve, VE, giayNay, DAU_GHI, moiTruong, goi } from './chung.mjs';
+import { TEAM, AUD, AUD_HUB, EMAIL, K1, K_LA, jwk, ve, VE, giayNay, DAU_GHI, moiTruong, goi, GID_WEB, GID_KERNEL, GID_LA } from './chung.mjs';
 
 const mt = moiTruong();
 let m;
@@ -119,6 +119,45 @@ test('socket: web + kernel mode 0660, không TCP; socket cũ của chính mình 
   assert.equal((await goi(m2, '/api/phien')).ma, 200);
 });
 
+// Soát A8 (HIGH): socket mới lấy nhóm THƯ MỤC CHA (macOS) ⇒ web.sock và kernel.sock chung thư mục thì chung nhóm, cloudflared nối được kernel.sock.
+// Máy chủ chown từng socket về gid cấu hình TRƯỚC chmod 0660, rồi lstat kiểm; lệch ⇒ không khởi động, không để lại socket.
+const conSocket = c => [c.ngheSocket, c.ngheKernel].filter(s => typeof s === 'string' && fs.existsSync(s));
+async function voiFs(thay, viec) {   // thay tạm hàm fs (máy chủ chạy trong tiến trình test ⇒ cùng đối tượng fs)
+  const goc = Object.fromEntries(Object.keys(thay).map(k => [k, fs[k]]));
+  Object.assign(fs, Object.fromEntries(Object.entries(thay).map(([k, f]) => [k, f(goc[k])])));
+  try { return await viec(); } finally { Object.assign(fs, goc); }
+}
+
+test('socket: web.sock mang gidWeb, kernel.sock mang gidKernel (khác nhau, khác nhóm thư mục cha); nhóm đã đúng TRƯỚC khi chmod', async () => {
+  assert.ok(GID_KERNEL !== undefined, 'tiến trình phải thuộc ≥ 2 nhóm để đo');
+  const nhomCha = fs.statSync(mt.tam).gid;
+  assert.ok(nhomCha !== GID_WEB && nhomCha !== GID_KERNEL, 'nhóm thư mục cha phải khác cả hai gid (phép đo phân biệt được)');
+  for (const [s, g] of [[m.ngheSocket, GID_WEB], [m.ngheKernel, GID_KERNEL]]) {
+    const st = fs.lstatSync(s);
+    assert.deepEqual([st.isSocket(), st.uid, st.gid, st.mode & 0o777], [true, process.getuid(), g, 0o660], s);
+  }
+  const f = mt.cauHinh(), c = JSON.parse(fs.readFileSync(f, 'utf8')), lucChmod = new Map();
+  await voiFs({ chmodSync: goc => (p, ...a) => { if (p === c.ngheSocket || p === c.ngheKernel) lucChmod.set(p, fs.lstatSync(p).gid); return goc(p, ...a); } },
+    async () => assert.equal(await mt.thuKhoi(f), null));
+  assert.deepEqual([lucChmod.get(c.ngheSocket), lucChmod.get(c.ngheKernel)], [GID_WEB, GID_KERNEL], 'chown phải chạy TRƯỚC chmod 0660');
+});
+
+test('socket: chown bị bỏ qua hay chmod bị bỏ qua ⇒ lstat kiểm thấy lệch, không khởi động, không để lại socket; gid tiến trình không thuộc ⇒ EPERM, không để lại socket', async () => {
+  for (const [ten, thay] of [['chown', { lchownSync: () => () => {} }], ['chmod', { chmodSync: goc => (p, ...a) => (p.endsWith('.s') ? undefined : goc(p, ...a)) }]]) {
+    const f = mt.cauHinh(), c = JSON.parse(fs.readFileSync(f, 'utf8'));
+    assert.match(String((await voiFs(thay, () => mt.thuKhoi(f)))?.message), /socket: .* lệch/, ten);
+    assert.deepEqual(conSocket(c), [], ten);
+  }
+  if (process.getuid() !== 0) {                 // root chown được mọi nhóm ⇒ không đo ở đây
+    assert.ok(!process.getgroups().includes(GID_LA) && GID_LA !== fs.statSync(mt.tam).gid, 'GID_LA phải ngoài nhóm tiến trình và khác nhóm thư mục cha');
+    for (const k of ['gidWeb', 'gidKernel']) {
+      const f = mt.cauHinh({ [k]: GID_LA }), c = JSON.parse(fs.readFileSync(f, 'utf8'));
+      assert.match(String((await mt.thuKhoi(f))?.message), /EPERM/, k);
+      assert.deepEqual(conSocket(c), [], k);
+    }
+  }
+});
+
 test('socket: đường đã có không phải socket của uid mình ⇒ không xoá, từ chối (web lẫn kernel)', async () => {
   const f = path.join(mt.tam, 'tep.s'); fs.writeFileSync(f, 'GIU-NGUYEN');
   for (const k of ['ngheSocket', 'ngheKernel']) {
@@ -140,6 +179,11 @@ test('cấu hình: cong + ngheSocket, thiếu cả hai, khoá lạ, thiếu kho�
     [{ cosGhi: 'false' }, [], /cosGhi/], [{ ngheKernel: 'k.s' }, [], /ngheKernel phải là đường tuyệt đối/],
     [{ thuMucBan: 1 }, [], /thuMucBan phải là đường tuyệt đối/], [{ uidCho: -1 }, [], /uidCho/],
     [{ cong: 1.5 }, ['ngheSocket'], /cong/], [{ cong: 70000 }, ['ngheSocket'], /cong/], [{ aud: '' }, [], /aud/],
+    // Soát A8: production (ngheSocket) bắt buộc CẢ gidWeb lẫn gidKernel, số nguyên ≥ 0, KHÁC nhau
+    [{}, ['gidWeb'], /thiếu gidWeb/], [{}, ['gidKernel'], /thiếu gidKernel/], [{}, ['gidWeb', 'gidKernel'], /thiếu gidWeb/],
+    [{ gidKernel: GID_WEB }, [], /gidWeb trùng gidKernel/],
+    ...[-1, '20', 1.5, null].flatMap(v => [[{ gidWeb: v }, [], /gidWeb phải là số nguyên ≥ 0/], [{ gidKernel: v }, [], /gidKernel phải là số nguyên ≥ 0/]]),
+    [{ cong: 0, gidKernel: -1 }, ['ngheSocket'], /gidKernel phải là số nguyên ≥ 0/],
   ];
   for (const [them, bo, re] of sai) {
     const f = mt.cauHinh(them, bo), c = JSON.parse(fs.readFileSync(f, 'utf8'));
@@ -163,4 +207,10 @@ test('cấu hình: cong + ngheSocket, thiếu cả hai, khoá lạ, thiếu kho�
   assert.equal(dev.server.address().address, '127.0.0.1');
   assert.equal((await goi(dev, '/api/phien')).ma, 200);
   assert.equal((await goi(dev, '/api/phien', { jwt: '' })).ma, 401);
+  // Dev: gid tuỳ chọn; có gidKernel thì vẫn áp cho kernel.sock
+  const devKhong = await mt.may({ cong: 0 }, ['ngheSocket', 'gidWeb', 'gidKernel']);
+  assert.equal((await goi(devKhong, '/api/phien')).ma, 200);
+  assert.equal(fs.lstatSync(devKhong.ngheKernel).mode & 0o777, 0o660);
+  const devCo = await mt.may({ cong: 0 }, ['ngheSocket', 'gidWeb']);
+  assert.equal(fs.lstatSync(devCo.ngheKernel).gid, GID_KERNEL);
 });

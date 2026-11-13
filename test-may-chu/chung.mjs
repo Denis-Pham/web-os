@@ -21,15 +21,20 @@ export function ve(sua = {}, { khoa = K1, kid = 'k1', than } = {}) {
 }
 export const VE = ve();
 export const DAU_GHI = { 'X-WebOS': '1', 'Content-Type': 'application/json' };
+// Nhóm socket (soát A8): web.sock ⇒ gid chính, kernel.sock ⇒ một nhóm khác tiến trình thuộc (ưu tiên everyone 12); GID_LA: nhóm tiến trình
+// KHÔNG thuộc và khác nhóm thư mục tạm (socket mới đã mang nhóm đó ⇒ chown về chính nó không lỗi, phép đo EPERM không phân biệt được).
+const NHOM = process.getgroups(), GOC_TAM = process.env.WO_GOC || '/tmp', NHOM_TAM = fs.statSync(GOC_TAM).gid;
+export const GID_WEB = process.getgid(), GID_KERNEL = [12, ...NHOM].find(g => g !== GID_WEB && NHOM.includes(g));
+export const GID_LA = [...Array(1000).keys()].find(g => g !== GID_WEB && g !== NHOM_TAM && !NHOM.includes(g));
 
 export function moiTruong() {
-  const tam = fs.mkdtempSync(path.join(process.env.WO_GOC || '/tmp', 'wo-')), ds = [];   // WO_GOC: runner đột biến đặt thư mục riêng của lượt
+  const tam = fs.mkdtempSync(path.join(GOC_TAM, 'wo-')), ds = [];   // WO_GOC: runner đột biến đặt thư mục riêng của lượt
   let so = 0;
   // Mỗi cấu hình một bộ socket + thư mục kho riêng (hai máy chủ cùng lúc không giẫm nhau).
   const cauHinh = (them = {}, bo = []) => {
     const n = so++, kho = path.join(tam, 'kho' + n);
     fs.mkdirSync(kho);
-    const c = { teamDomain: TEAM, aud: AUD, emails: [EMAIL], ngheSocket: path.join(tam, `w${n}.s`), ngheKernel: path.join(tam, `k${n}.s`), thuMucKho: kho, thuMucSaoLuu: path.join(tam, 'sl' + n), cosGhi: false, ...them };
+    const c = { teamDomain: TEAM, aud: AUD, emails: [EMAIL], ngheSocket: path.join(tam, `w${n}.s`), ngheKernel: path.join(tam, `k${n}.s`), thuMucKho: kho, thuMucSaoLuu: path.join(tam, 'sl' + n), cosGhi: false, gidWeb: GID_WEB, gidKernel: GID_KERNEL, ...them };
     for (const k of bo) delete c[k];
     const f = path.join(tam, `ch-${n}.json`); fs.writeFileSync(f, JSON.stringify(c)); return f;
   };

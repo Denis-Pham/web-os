@@ -227,11 +227,13 @@ export const ROUTE = {
     if (!khop(SHA, sha)) throw new LoiGoi(400, 'luoc_do', { ly_do: 'sha' });
     return tuanTu(() => luiBan(ctx.ch, sha));
   },
+  // manifest bắt buộc (soát A8): manifest anh thấy ở GET /api/ban; bản chờ đổi từ lúc đó ⇒ 409 (nội dung xem gắn với manifest sẽ duyệt).
   'GET /api/ban/tep': ({ ctx, query }) => {
-    const { sha, ten } = docQuery(query, ['sha', 'ten']);
+    const { sha, ten, manifest } = docQuery(query, ['sha', 'ten', 'manifest']);
     if (!khop(SHA, sha)) throw saiQuery('sha');
     if (!tenDung(ten)) throw saiQuery('ten');
-    return tepBan(ctx.ch, sha, ten);
+    if (!khop(MANIFEST, manifest)) throw saiQuery('manifest');
+    return tepBan(ctx.ch, sha, ten, manifest);
   },
 };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

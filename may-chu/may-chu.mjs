@@ -24,13 +24,24 @@ function goSocketCu(duong) {
   fs.unlinkSync(duong);
 }
 
+// Kiểm socket vừa dựng (soát A8): socket, chủ = tiến trình, nhóm = gid cấu hình (khi có), mode 0660 — lệch ⇒ ném (khoiDong đóng hết, gỡ socket).
+function kiemSocket(duong, gid) {
+  const st = fs.lstatSync(duong), mode = st.mode & 0o777;
+  if (!(st.isSocket() && st.uid === process.getuid() && (gid === undefined || st.gid === gid) && mode === 0o660))
+    throw new Error(`socket: ${duong} lệch sau chown/chmod (uid ${st.uid} gid ${st.gid} mode ${mode.toString(8)})`);
+}
+
 // Production nghe Unix socket, KHÔNG TCP: cổng 127.0.0.1 bị nhả (máy chủ dừng) thì neo chiếm được và hứng vé từ đường hầm.
-async function nghe(server, duong, cong) {
+// Socket mới lấy nhóm THƯ MỤC CHA (macOS), không lấy egid ⇒ chown về gid cấu hình TRƯỚC chmod 0660: lúc mới tạo theo umask nhóm chưa có w,
+// nên trong khe giữa hai bước chỉ chủ nối được. lchown: không theo symlink. Không thuộc nhóm gid ⇒ EPERM ⇒ không khởi động.
+async function nghe(server, duong, cong, gid) {
   const lang = (...a) => new Promise((ok, loi) => { server.once('error', loi); server.listen(...a, ok); });
   if (duong === null) return lang(cong, '127.0.0.1');
   goSocketCu(duong);
   await lang(duong);
+  if (gid !== undefined) fs.lchownSync(duong, -1, gid);
   fs.chmodSync(duong, 0o660);
+  kiemSocket(duong, gid);
 }
 
 // dongHo (chỉ test): đồng hồ giả cho bộ hẹn sao lưu + hẹn 5 s của kernel.sock ({ now, setTimeout, clearTimeout }).
@@ -59,7 +70,7 @@ export async function khoiDong(duongCauHinh, { layJwks, ghiLog = s => process.st
     for (const s of [server, kernel]) if (s.listening) await new Promise(r => { s.close(r); s.closeAllConnections(); });
     db.close();
   })());
-  try { await nghe(server, ch.ngheSocket, ch.cong); await nghe(kernel, ch.ngheKernel); }
+  try { await nghe(server, ch.ngheSocket, ch.cong, ch.gidWeb); await nghe(kernel, ch.ngheKernel, undefined, ch.gidKernel); }
   catch (e) { await dong(); throw e; }
   const dc = server.address();
   return { server, kernel, cong: typeof dc === 'string' ? null : dc.port, ngheSocket: ch.ngheSocket, ngheKernel: ch.ngheKernel, dong, db };

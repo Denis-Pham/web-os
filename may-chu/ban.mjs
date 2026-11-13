@@ -146,11 +146,13 @@ function moTa(f, nhi) {
   if (nhi) return { sha256: f.sha256 };
   try { return { sha256: f.sha256, noi_dung: UTF8.decode(f.buf) }; } catch { return { sha256: f.sha256, noi_dung: null }; }
 }
-export async function tepBan(ch, sha, ten) {
+// manifest: cái anh thấy ở danh sách; tính từ CÙNG lượt đọc `ds` (cùng manifestCua của duyệt) ⇒ lệch thì 409, không trả nội dung.
+export async function tepBan(ch, sha, ten, manifest) {
   if (ch.thuMucCho === undefined) throw new LoiGoi(404, 'khong_co_ban');
   let ds;
   try { ds = await docBan(path.join(ch.thuMucCho, 'ban', sha), ch.uidCho); }
   catch (e) { throw e instanceof BanHong && e.lyDo === 'khong_mo' ? new LoiGoi(404, 'khong_co_ban') : loiHong(e); }
+  if (manifestCua(ds) !== manifest) throw new LoiGoi(409, 'manifest_lech');
   const ht = shaCua(ch.thuMucBan, 'hien-tai'), moi = ds.find(f => f.ten === ten) ?? null;
   let cu = null;
   if (ht) try { cu = (await docBan(path.join(ch.thuMucBan, 'ban', ht), process.getuid())).find(f => f.ten === ten) ?? null; } catch (e) { if (!(e instanceof BanHong)) throw e; }

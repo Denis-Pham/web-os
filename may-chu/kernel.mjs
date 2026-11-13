@@ -10,6 +10,7 @@ import { ROUTE } from './api.mjs';
 
 export const TRAN_KHUNG = 64 * 1024;
 const HAN_KHUNG_MS = 5000;
+const TRAN_KET_NOI = 32;   // kết nối đồng thời (soát A8): quá trần ⇒ libuv đóng ngay kết nối mới, không trả lời
 const NEO = 'neo';
 
 // Khoá đóng của thao_tac từng op (danh sách op đóng = khoá của bảng này).
@@ -145,6 +146,7 @@ export function taoKernel(ctx, hen = { setTimeout, clearTimeout }) {
     };
     c.on('data', nhan);
   });
+  s.maxConnections = TRAN_KET_NOI;
   s.closeAllConnections = () => { for (const c of ketNoi) c.destroy(); };
   return s;
 }

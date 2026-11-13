@@ -350,3 +350,20 @@ test('lỗi lạ ⇒ { ok: false, loi: "loi_may_chu" }, không lộ thông đi�
   } finally { if (goc) Object.defineProperty(m.db, 'prepare', goc); else delete m.db.prepare; }
   assert.equal((await ker(m, lenh('doc_viec', {}))).ok, true, 'đối chứng sau khi trả prepare');
 });
+
+// Soát A8 (LOW): trần số kết nối đồng thời trên kernel.sock (một thành viên webosipc giữ hàng chục nghìn kết nối ⇒ cạn fd cả web.sock).
+test('trần 32 kết nối: giữ 32 kết nối mở ⇒ kết nối thứ 33 bị đóng, không trả lời; đóng bớt một ⇒ kết nối mới lại được phục vụ', async () => {
+  const soKetNoi = () => new Promise((ok, loi) => m.kernel.getConnections((e, n) => (e ? loi(e) : ok(n))));
+  const choSo = async n => { const het = Date.now() + 2000; while (await soKetNoi() !== n) { if (Date.now() > het) assert.fail('hết giờ chờ ' + n + ' kết nối'); await new Promise(r => setTimeout(r, 5)); } };
+  const giu = [];
+  try {
+    for (let i = 0; i < 32; i++) giu.push(await new Promise((ok, loi) => { const c = net.createConnection(m.ngheKernel); c.on('connect', () => ok(c)); c.once('error', loi); }));
+    await choSo(32);
+    const ra = await guiTho(m, khung(lenh('doc_viec', {})));
+    assert.ok(ra, 'máy chủ không đóng kết nối thứ 33');
+    assert.equal(ra.length, 0, 'kết nối thứ 33 phải bị đóng không trả lời');
+    giu.pop().destroy();
+    await choSo(31);
+    assert.equal((await ker(m, lenh('doc_viec', {}))).ok, true, 'đóng bớt một ⇒ được phục vụ');
+  } finally { for (const c of giu) c.destroy(); }
+});

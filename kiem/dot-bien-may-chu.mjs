@@ -549,6 +549,31 @@ const NHOM = {
     ['phuc-hoi-lui-sha', BAN, 'body: JSON.stringify({ sha })', "body: JSON.stringify({ sha: 'x' })"],
     ['phuc-hoi-go-sw', BAN, '    if (navigator.serviceWorker) for (const d of await navigator.serviceWorker.getRegistrations()) await d.unregister();\n', ''],
   ],
+  A8: [
+    // Soát an ninh A8 — HIGH: mỗi socket một nhóm cấu hình. chown (hàm + chỗ gọi: bỏ truyền / đổi chéo gid), thứ tự chown ⇒ chmod,
+    // lstat kiểm (hàm: gid, mode + chỗ gọi), cấu hình (bắt buộc ở production, khác nhau, kiểu).
+    ['gid-chown-ham', MC, '  if (gid !== undefined) fs.lchownSync(duong, -1, gid);\n', ''],
+    ['gid-goi-bo-truyen', MC, 'await nghe(kernel, ch.ngheKernel, undefined, ch.gidKernel);', 'await nghe(kernel, ch.ngheKernel);'],
+    ['gid-goi-kernel-dung-web', MC, 'nghe(kernel, ch.ngheKernel, undefined, ch.gidKernel)', 'nghe(kernel, ch.ngheKernel, undefined, ch.gidWeb)'],
+    ['gid-goi-web-dung-kernel', MC, 'nghe(server, ch.ngheSocket, ch.cong, ch.gidWeb)', 'nghe(server, ch.ngheSocket, ch.cong, ch.gidKernel)'],
+    ['gid-thu-tu', MC, '  if (gid !== undefined) fs.lchownSync(duong, -1, gid);\n  fs.chmodSync(duong, 0o660);\n', '  fs.chmodSync(duong, 0o660);\n  if (gid !== undefined) fs.lchownSync(duong, -1, gid);\n'],
+    ['gid-kiem-ham', MC, ' && (gid === undefined || st.gid === gid)', ''],
+    ['gid-kiem-mode', MC, ' && mode === 0o660))', '))'],
+    ['gid-kiem-goi', MC, '  kiemSocket(duong, gid);\n', ''],
+    ['gid-cau-hinh-bat-buoc', CH, "    if (Object.hasOwn(ch, 'ngheSocket') && !Object.hasOwn(ch, k)) throw new Error('cấu hình: thiếu ' + k + ' (bắt buộc khi có ngheSocket)');\n", ''],
+    ['gid-cau-hinh-bat-buoc-kernel', CH, "&& !Object.hasOwn(ch, k)) throw", "&& k === 'gidWeb' && !Object.hasOwn(ch, k)) throw"],
+    ['gid-cau-hinh-khac-nhau', CH, "  if (Object.hasOwn(ch, 'gidWeb') && ch.gidWeb === ch.gidKernel) throw new Error('cấu hình: gidWeb trùng gidKernel');\n", ''],
+    ['gid-cau-hinh-khac-nhau-chi-dev', CH, "if (Object.hasOwn(ch, 'gidWeb') && ch.gidWeb === ch.gidKernel)", "if (Object.hasOwn(ch, 'cong') && ch.gidWeb === ch.gidKernel)"],
+    ['gid-cau-hinh-kieu', CH, ' && (!Number.isInteger(ch[k]) || ch[k] < 0)) throw', ' && false) throw'],
+    ['gid-cau-hinh-am', CH, 'ch[k] < 0', 'ch[k] < -1'],
+    // MEDIUM: /api/ban/tep gắn với manifest anh thấy — so trong tepBan (hàm) · chỗ gọi truyền manifest tính lại · query bắt buộc
+    ['tep-manifest-ham', BAN, "  if (manifestCua(ds) !== manifest) throw new LoiGoi(409, 'manifest_lech');\n", ''],
+    ['tep-manifest-goi', API, 'return tepBan(ctx.ch, sha, ten, manifest);', 'return xemBan(ctx.ch).then(x => tepBan(ctx.ch, sha, ten, x.cho.find(c => c.sha === sha)?.manifest));'],
+    ['tep-manifest-query', API, "    if (!khop(MANIFEST, manifest)) throw saiQuery('manifest');\n", ''],
+    // LOW: kernel.sock trần 32 kết nối đồng thời (hằng + dòng gán)
+    ['ket-noi-tran-hang', KER, 'const TRAN_KET_NOI = 32;', 'const TRAN_KET_NOI = 33;'],
+    ['ket-noi-tran-goi', KER, '  s.maxConnections = TRAN_KET_NOI;\n', ''],
+  ],
 };
 
 const chon = process.argv.slice(2);
