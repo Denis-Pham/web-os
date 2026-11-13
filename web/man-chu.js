@@ -17,7 +17,7 @@ const BANG = { viec: 'việc', lich: 'lịch', tien_do: 'tiến độ', de_xuat:
 let duLieu = null;
 
 const chuaNoi = k => !k || k.trang_thai === 'chua_noi' || k.trang_thai === 'thieu';
-export function nhan(k) {
+function nhan(k) {
   const n = NHAN[k?.trang_thai];
   if (!n) return null;
   return (k.trang_thai === 'cu' || k.trang_thai === 'hong') && k.gio_dung ? `${n}, dựng lúc ${gioVN(k.gio_dung)}` : n;

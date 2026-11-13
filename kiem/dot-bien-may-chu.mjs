@@ -60,7 +60,7 @@ const NHOM = {
     // R9 khoá lặp
     ['khoa-lap-ham', GOI, 'const KHOA_LAP = /^[A-Za-z0-9_-]{8,100}$/;', 'const KHOA_LAP = /^.{1,}$/;'],
     ['khoa-lap-kieu', GOI, "typeof khoa_lap !== 'string' || ", ''],
-    ['khoa-lap-goi', GOI, "  if (typeof khoa_lap !== 'string' || !KHOA_LAP.test(khoa_lap)) throw saiLuocDo({ ly_do: 'khoa_lap' });\n", ''],
+    ['khoa-lap-goi-a1', GOI, "  if (typeof khoa_lap !== 'string' || !KHOA_LAP.test(khoa_lap)) throw saiLuocDo({ ly_do: 'khoa_lap' });\n", ''],
     ['r9-bo-so-chu-the', GOI, 'cu.chu_the !== chu_the || ', ''],
     ['r9-bo-so-ops', GOI, ' || cu.ops !== opsJson', ''],
     ['r9-bo-chuan-hoa', GOI, 'Object.keys(t).sort().map', 'Object.keys(t).map'],
@@ -323,7 +323,7 @@ const NHOM = {
     ['dx-tao-mach', GOI, "  if (!hopLe({ chu: 200, it: 1, bb: true }, mach)) throw saiLuocDo({ ly_do: 'mach' });\n", ''],
     ['dx-tao-noi-dung', GOI, "  if (!hopLe({ chu: 2000, bb: true }, noi_dung)) throw saiLuocDo({ ly_do: 'noi_dung' });\n", ''],
     // api.mjs — cổng cosGhi: hàm + MỌI chỗ gọi (bắt buộc: /api/hoan) + thứ tự (trước khi đọc thân) + chỉ-đọc không qua cổng
-    ['cos-ghi-ham', API, 'function kiemCosGhi(ctx) { if (ctx.ch.cosGhi !== true) throw', 'function kiemCosGhi(ctx) { if (false) throw'],
+    ['cos-ghi-ham-a3', API, 'function kiemCosGhi(ctx) { if (ctx.ch.cosGhi !== true) throw', 'function kiemCosGhi(ctx) { if (false) throw'],
     ['cos-ghi-goi-hoan', API, '    kiemCosGhi(ctx);\n    const { ma_hoan } = docJson(', '    const { ma_hoan } = docJson('],
     ['cos-ghi-goi-goi', API, '    kiemCosGhi(ctx);\n    const { khoa_lap, ops } = docJson(', '    const { khoa_lap, ops } = docJson('],
     ['cos-ghi-goi-bo-qua', API, '    kiemCosGhi(ctx);\n    docJson(than, []);', '    docJson(than, []);'],
@@ -460,8 +460,8 @@ const NHOM = {
     ['doc-cai-tien-ham', KER, 'function kiemDocCaiTien(op, nguon) {\n', 'function kiemDocCaiTien(op, nguon) {\n  return;\n'],
     ['doc-cai-tien-goi', KER, '    kiemDocCaiTien(op, nguon);\n', ''],
     // cosGhi trên socket
-    ['cos-ghi-ham', KER, 'function kiemCosGhi(ch, op) {\n', 'function kiemCosGhi(ch, op) {\n  return;\n'],
-    ['cos-ghi-goi', KER, '    kiemCosGhi(ctx.ch, op);\n', ''],
+    ['cos-ghi-ham-a4', KER, 'function kiemCosGhi(ch, op) {\n', 'function kiemCosGhi(ch, op) {\n  return;\n'],
+    ['cos-ghi-goi-a4', KER, '    kiemCosGhi(ctx.ch, op);\n', ''],
     ['cos-ghi-de-xuat', KER, 'if (!DOC.includes(op) && ch.cosGhi !== true)', "if (!DOC.includes(op) && op !== 'de_xuat_tao' && ch.cosGhi !== true)"],
     ['cos-ghi-hoan', KER, 'if (!DOC.includes(op) && ch.cosGhi !== true)', "if (!DOC.includes(op) && op !== 'hoan' && ch.cosGhi !== true)"],
     // de_xuat_tao không mang xoa
@@ -472,7 +472,7 @@ const NHOM = {
     ['hoan-anh-goi', KER, 'hoanTac(ctx.db, { ma_hoan, chu_the: NEO, nguon }, t)', "hoanTac(ctx.db, { ma_hoan, chu_the: 'anh', nguon: { loai: 'web' } }, t)"],
     // R12: khoa_lap từ (kenh, tin_id, op, JSON chuẩn hoá) · đề xuất lặp ⇒ id cũ
     ['khoa-lap-sap-xep', KER, 'JSON.stringify(sapXep(tt))', 'JSON.stringify(tt)'],
-    ['khoa-lap-goi', KER, 'khoa_lap: khoaLap(nguon, op, tt)', 'khoa_lap: khoaLap(nguon, op, { ...tt, lan: Math.random() })'],
+    ['khoa-lap-goi-a4', KER, 'khoa_lap: khoaLap(nguon, op, tt)', 'khoa_lap: khoaLap(nguon, op, { ...tt, lan: Math.random() })'],
     ['khoa-lap-kenh', KER, '[nguon.kenh, nguon.tin_id, op, ', '[nguon.tin_id, op, '],
     ['khoa-lap-tin-id', KER, '[nguon.kenh, nguon.tin_id, op, ', '[nguon.kenh, op, '],
     ['khoa-lap-op', KER, '[nguon.kenh, nguon.tin_id, op, ', '[nguon.kenh, nguon.tin_id, '],
@@ -508,7 +508,7 @@ const NHOM = {
     // 3: route không nhận query ⇒ query khác rỗng 400 (hàm docQuery + chỗ gọi lệnh ghi + /api/phien)
     ['query-ham', API, 'function docQuery(query, khoa) {\n  const o = {};\n', 'function docQuery(query, khoa) {\n  const o = {};\n  return o;\n'],
     ['query-ghi-goi', API, 'if (than !== null) docQuery(query, []); ', ''],
-    ['query-phien-goi', API, '({ ve, query }) => { docQuery(query, []); return', '({ ve, query }) => { return'],
+    ['query-phien-goi', API, '({ ctx, ve, query }) => { docQuery(query, []); return', '({ ctx, ve, query }) => { return'],
     // Cửa duyệt bản (Step 5). Tính lại manifest: hàm (bỏ nội dung) + chỗ gọi (bản mới chép; SHA từng duyệt)
     ['manifest-ham', BAN, 'ds.map(f => [f.ten, f.co, f.sha256])', 'ds.map(f => [f.ten, f.co])'],
     ['manifest-nguon', BAN, 'manifestCua(await docBan(tam, uidMay))', 'manifestCua(await docBan(nguon, ch.uidCho))'],
@@ -557,7 +557,7 @@ const NHOM = {
     // /phuc-hoi: mã máy chủ tra trước bản; nút Lùi gửi đúng truoc và gỡ service worker
     ['phuc-hoi-goi', BAN, '  if (Object.hasOwn(PHUC_HOI, p)) return [200, ...PHUC_HOI[p]];\n', ''],
     ['phuc-hoi-lui-sha', BAN, 'body: JSON.stringify({ sha })', "body: JSON.stringify({ sha: 'x' })"],
-    ['phuc-hoi-go-sw', BAN, '    if (navigator.serviceWorker) for (const d of await navigator.serviceWorker.getRegistrations()) await d.unregister();\n', ''],
+    ['phuc-hoi-go-sw', BAN, 'if (navigator.serviceWorker) for (const d of await navigator.serviceWorker.getRegistrations()) await d.unregister();', ''],
   ],
   A8: [
     // Soát an ninh A8 — HIGH: mỗi socket một nhóm cấu hình. chown (hàm + chỗ gọi: bỏ truyền / đổi chéo gid), thứ tự chown ⇒ chmod,
@@ -636,7 +636,7 @@ const NHOM = {
   B2: [
     ['viec-bo-ham', API, "d => d.viec.filter(v => !v.xong)) };", 'd => d.viec) };'],
     ['viec-bo-goi', API, 'return { viec_bo: vao === undefined ?', 'return { viec_bo: true ?'],
-    ['cos-ghi-ham', API, 'cos_ghi: ctx.ch.cosGhi === true,', 'cos_ghi: true,'],
+    ['cos-ghi-ham-b2', API, 'cos_ghi: ctx.ch.cosGhi === true,', 'cos_ghi: true,'],
     // B2 lượt 2b: màn Việc & lịch — vẽ lại sau ghi (hàm + chỗ gọi) · brief từ /api/brief (chỗ gọi: brief mẫu; hàm: veBrief ghi '0') ·
     // Hoàn tác từng bước (hàm: pop ⇒ shift; chỗ gọi: thanh Hoàn tác không gắn hàm)
     ['ghi-tai-lai-ham', VL, 'export async function taiLai() {', 'export async function taiLai() { return;', T_VL],
@@ -655,7 +655,7 @@ const NHOM = {
     ['ngay-mien-goi', VG, "o('Hạn', oNgay('han', v?.han?.slice(0, 10))),", "o('Hạn', el('input', { type: 'date', name: 'han' })),", T_VL],
     ['viec-don-goi', VL, 'don() { donGhi(); dem = null;', 'donX() { donGhi(); dem = null;', T_VL],
     ['don-ghi-goi', VL, 'don() { donGhi(); dem = null;', 'don() { dem = null;', T_VL],
-    ['cos-ghi-goi', VL, "datGhi((await goiApi('/api/phien')).cos_ghi === true)", 'datGhi(true)', T_VL],
+    ['cos-ghi-goi-b2', VL, "datGhi((await goiApi('/api/phien')).cos_ghi === true)", 'datGhi(true)', T_VL],
   ],
   // B3 lượt 3a: Hỏi AI chỉ đề xuất — kiemDeXuatAI từng điều kiện (hàm) + chỗ gọi ở taoDeXuat / apDungDeXuat · docDeXuat chặn HTML (hàm) + chỗ gọi ·
   // chu_the 'ai' · cấy «ghi ngay lúc đề xuất» (đối chứng Đ2) · route: cổng cos_ghi + 503 chưa cấu hình (R11). Không ai-ngay-ham (R11).
