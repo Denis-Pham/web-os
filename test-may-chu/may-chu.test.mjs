@@ -17,10 +17,10 @@ let m;
 before(async () => { m = await mt.may({}, [], { ghiLog: s => log.push(s) }); });
 after(() => mt.dong());
 
-test('GET /api/phien ⇒ { email, het_luc } với het_luc = exp của vé (ISO UTC); HEAD cũng qua cổng', async () => {
+test('GET /api/phien ⇒ { email, het_luc, cos_ghi, ban_ghi } với het_luc = exp của vé (ISO UTC); HEAD cũng qua cổng', async () => {
   const exp = giayNay() + 1234, r = await goi(m, '/api/phien', { jwt: ve({ exp }) });
   assert.equal(r.ma, 200);
-  assert.deepEqual(r.json, { email: EMAIL, het_luc: new Date(exp * 1000).toISOString() });
+  assert.deepEqual(r.json, { email: EMAIL, het_luc: new Date(exp * 1000).toISOString(), cos_ghi: false, ban_ghi: false });
   assert.match(r.dau['content-type'], /^application\/json/); assert.equal(r.dau['cache-control'], 'no-store');
   assert.match(r.dau['content-security-policy'], /default-src 'self'.*frame-ancestors 'none'/);
   assert.equal((await goi(m, '/api/phien', { method: 'HEAD' })).ma, 200);

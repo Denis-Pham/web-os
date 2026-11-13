@@ -629,6 +629,12 @@ const NHOM = {
     ['api-chi-doc-ham', API_WEB, 'export const laChiDoc = r => r.status === 423;', 'export const laChiDoc = r => false;', T_BAN_UI],
     ['api-chi-doc-goi', API_WEB, '  if (laChiDoc(r)) { khiChiDoc(); throw new LoiChiDoc(); }\n', '', T_BAN_UI],
   ],
+  // B2 lượt 2a: máy chủ — /api/viec-bo (lọc việc chưa xong · chỗ gọi: route luôn chua_noi) · /api/phien cos_ghi (R12)
+  B2: [
+    ['viec-bo-ham', API, "d => d.viec.filter(v => !v.xong)) };", 'd => d.viec) };'],
+    ['viec-bo-goi', API, 'return { viec_bo: vao === undefined ?', 'return { viec_bo: true ?'],
+    ['cos-ghi-ham', API, 'cos_ghi: ctx.ch.cosGhi === true,', 'cos_ghi: true,'],
+  ],
 };
 
 const chon = process.argv.slice(2);

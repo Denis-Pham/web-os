@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { apGoi, taoDeXuat } from '../may-chu/goi.mjs';
-import { DAU_GHI, moiTruong, goi } from './chung.mjs';
+import { DAU_GHI, moiTruong, goi, ve, AUD_HUB } from './chung.mjs';
 
 const mt = moiTruong();
 const T0 = Date.parse('2026-11-12T18:30:00Z');   // 01:30 ngày 13/11 giờ VN: ngày VN khác ngày UTC
@@ -385,4 +385,30 @@ test('nhật ký: 24 giờ gần nhất, mới trước, ≤ 200 dòng; tu chỉ
     for (const q of ['?tu=x', '?tu=2026-11-13', '?tu=2026-11-13T01:30:00Z', '?tu=2026-02-30T00:00:00.000Z', '?tu='])
       assert.deepEqual((await goi(mN, '/api/nhat-ky' + q)).json, { loi: 'query', chi_tiet: { truong: 'tu' } }, q);
   } finally { T = T0; }
+});
+
+test('B2 /api/viec-bo: không thuMucXuatVao ⇒ chua_noi; có mẫu ⇒ chỉ việc xong: false; query lạ ⇒ 400; vé Hub ⇒ 401', async () => {
+  const m0 = await may();
+  assert.deepEqual((await goi(m0, '/api/viec-bo')).json, { viec_bo: { trang_thai: 'chua_noi' } });
+  const vao = path.join(mt.tam, 'xuat-viec-bo'), nay = new Date().toISOString();
+  fs.mkdirSync(vao);
+  const bo = { luoc_do: 1, gio_dung: nay, viec: [
+    { id: 'b1', ten: 'Đóng học phí', han: '2026-11-13', lap: null, xong: false, sua_luc: null },
+    { id: 'b2', ten: 'Đã làm', han: '2026-11-13', lap: null, xong: true, sua_luc: null },
+    { id: 'b4', ten: 'Không hạn', han: null, lap: 'hằng tuần', xong: false, sua_luc: null }] };
+  fs.writeFileSync(path.join(vao, 'viec-bo.json'), JSON.stringify(bo));
+  const m1 = await may({ thuMucXuatVao: vao });
+  assert.deepEqual((await goi(m1, '/api/viec-bo')).json, { viec_bo: { trang_thai: 'tot', du_lieu: [bo.viec[0], bo.viec[2]], gio_dung: nay } });
+  assert.equal((await goi(m1, '/api/viec-bo?x=1')).ma, 400);
+  assert.equal((await goi(m1, '/api/viec-bo', { jwt: ve({ aud: [AUD_HUB] }) })).ma, 401);
+});
+
+test('B2 /api/phien: cos_ghi theo cosGhi, ban_ghi theo ghiBat (đều boolean)', async () => {
+  const phien = async o => (await goi(await may(o), '/api/phien')).json;
+  assert.equal((await phien({ cosGhi: true })).cos_ghi, true);
+  assert.equal((await phien({ cosGhi: false })).cos_ghi, false);
+  const goc = path.join(mt.tam, 'ban-ghi'), cho = path.join(goc, 'cho'), ban = path.join(goc, 'ban-web');
+  fs.mkdirSync(path.join(cho, 'ban'), { recursive: true }); fs.mkdirSync(ban);
+  assert.equal((await phien({ thuMucCho: cho, uidCho: process.getuid(), thuMucBan: ban, uidBan: process.getuid() })).ban_ghi, true);
+  assert.equal((await phien({})).ban_ghi, false);
 });

@@ -108,7 +108,13 @@ const khoiTep = (kq, lay) => ({ trang_thai: kq.trang_thai, du_lieu: kq.du_lieu =
 // 'PHƯƠNG_THỨC /đường' → ({ ctx, ve, than, query, id }) ⇒ object trả 200 | TraTho | ném LoiGoi. HEAD tra như GET.
 // Đoạn ':id' chỉ khớp UUID chữ thường (id kho là randomUUID()), không giải mã %.
 export const ROUTE = {
-  'GET /api/phien': ({ ve, query }) => { docQuery(query, []); return { email: ve.email, het_luc: ve.het_luc }; },
+  'GET /api/phien': ({ ctx, ve, query }) => { docQuery(query, []); return { email: ve.email, het_luc: ve.het_luc, cos_ghi: ctx.ch.cosGhi === true, ban_ghi: ghiBat(ctx.ch) }; },
+  // Mọi việc bố chưa xong (nhóm Việc nhà của màn Việc & lịch); man-chu chỉ trả việc hạn hôm nay.
+  'GET /api/viec-bo': ({ ctx, query }) => {
+    docQuery(query, []);
+    const vao = ctx.ch.thuMucXuatVao;
+    return { viec_bo: vao === undefined ? CHUA_NOI : khoiTep(docTepXuat(path.join(vao, 'viec-bo.json'), LUOC_VIEC_BO), d => d.viec.filter(v => !v.xong)) };
+  },
   'GET /api/viec': ({ ctx, query }) => {
     const q = docQuery(query, ['mo', 'mach']);
     if (q.mo !== undefined && q.mo !== '1') throw saiQuery('mo');
