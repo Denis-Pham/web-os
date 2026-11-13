@@ -42,6 +42,11 @@ const CO_GIA_TRI = ['--url', '--cookie-tep', '--va', '--cu', '--co'];   // cờ 
 const thamSoLa = a => a.find((x, i) => /^--[^=]+=/.test(x) || (x.startsWith('-') && x !== '--pha' && !CO_GIA_TRI.includes(x) && !CO_GIA_TRI.includes(a[i - 1])));
 const la = thamSoLa(process.argv.slice(2));
 if (la !== undefined) thoat(`tham số lạ: ${la.replace(/=.*/s, '=…')} — nhận --pha · --url <gốc> · --cookie-tep <tệp> · --va <tệp> · --cu <…> · --co <…> (không nhận dạng --tên=giá trị)`);
+// Pha C Task 5 (L4): cờ nhận giá trị đứng cuối hay phần tử kế là cờ «-…» ⇒ thamSo trả undefined/cờ: --co bị bỏ lặng (đo cả 6 cỡ), --va thành {}
+// ⇒ rc 2. Thông báo chỉ nêu tên cờ (từ CO_GIA_TRI), không in phần tử kế.
+const thieuGiaTri = a => a.find((x, i) => CO_GIA_TRI.includes(x) && (a[i + 1] ?? '-').startsWith('-'));
+const thieu = thieuGiaTri(process.argv.slice(2));
+if (thieu !== undefined) thoat(`${thieu}: thiếu giá trị (đứng cuối hay phần tử kế là cờ) — viết ${thieu} <giá trị>`);
 const coUrl = process.argv.includes('--url'), tepCookie = thamSo('--cookie-tep');
 const loiCD = loiCheDo(coUrl, pha, process.argv.includes('--va')); if (loiCD) thoat(loiCD);
 const goc = coUrl ? docGoc(thamSo('--url')) ?? thoat('--url: chỉ gốc https://<host> hay http://127.0.0.1:<cổng> (không đường, truy vấn, #)') : null;
@@ -58,7 +63,7 @@ const chanGhi = (ctx, goc, ghi) => ctx.route('**/*', r => {
   ghi.push(q.method() + ' ' + u.pathname);
   return r.abort();
 });
-const BO_NGOAI = ['bàn phím hộp sửa việc · cần dòng việc gieo'], BO_HET = 'màn Hết phiên · cần cầu bỏ vé';
+const BO_HET = 'màn Hết phiên · cần cầu bỏ vé';
 const cu =(thamSo('--cu') ?? '').split(',').filter(Boolean);
 const va = thamSo('--va') ? JSON.parse(fs.readFileSync(thamSo('--va'), 'utf8')) : {};
 const CO = [[375, 812], [768, 1024], [1440, 900]].flatMap(([w, h]) => ['light', 'dark'].map(c => [w, h, c]));
@@ -82,7 +87,7 @@ const goiAI = async () => {
 };
 const doTrang = async (page, cheDo = null) => {
   try { return await page.evaluate(`(${SRC})(${JSON.stringify(cu)}, ${JSON.stringify(cheDo)})`); }
-  catch (e) { return { dat: false, hong: ['bộ đo nổ: ' + e.message.slice(0, 160)], doiChung: {}, khoiDuoiNep: [], cos: [] }; }
+  catch (e) { return { dat: false, hong: ['bộ đo nổ: ' + e.message.slice(0, 160)], doiChung: {}, khoiDuoiNep: [], cos: [], bo: [] }; }
 };
 const dong = (co, kq, loi, mang, ghi = null, bo = null) => {   // ghi/bo chỉ ở chế độ --url
   const dat = kq.dat && !loi.length && !mang.length && !ghi?.length;
@@ -115,13 +120,15 @@ const doLoiVao = async page => {
 // (ngăn = #danh-sach-mach + nút che #che-menu của nó; body = focus đã rời trang sang khung trình duyệt — đo thật 375: sau 13 Tab ⇒ body ⇒ #che-menu
 // ⇒ vòng lại ngăn; thứ phép canh là .workspace inert); Esc ⇒ ngăn đóng, focus về ☰. Mọi cỡ: Tab tới nút sửa việc đầu, Enter ⇒ hộp mở, focus trong
 // hộp; Esc ⇒ hộp đóng, focus về ĐÚNG nút đó. Chờ hiệu ứng như choHieuUng của do-ban-that.js (mục 0 lượt 4b) trước mỗi lần đọc focus.
+// Trang thật (Pha C Task 5, L3): có nút sửa BẬT thì đo như trên; không có ⇒ bỏ, lý do vào `bo` (kho trống, hay nút disabled vì cos_ghi tắt —
+// web/viec-lich.js vẽ nút ghi disabled, Tab không tới). Đếm khi màn cos đã vẽ ([data-brief] vẽ cùng lượt với dòng việc), không đợi nút.
 const choHieuUng = page => page.evaluate(async () => { const a = document.documentElement.getAnimations({ subtree: true });
   if (a.length) await Promise.race([Promise.allSettled(a.map(x => x.finished)), new Promise(r => setTimeout(r, 1000))]); });
 const tabToi = async (page, sel) => {   // Tab (vòng qua cả trang) tới phần tử ĐẦU khớp sel; trần 80 phím
   for (let i = 0; i < 80; i++) { await page.keyboard.press('Tab'); if (await page.evaluate(s => document.activeElement === document.querySelector(s), sel)) return true; }
   return false;
 };
-const doBanPhim = async page => {
+const doBanPhim = async (page, bo) => {
   const hong = [], ve = f => page.evaluate(f);
   try {
     if (await page.locator('[data-act="mo-menu"]').isVisible()) {
@@ -138,9 +145,14 @@ const doBanPhim = async page => {
       if (await ve(() => document.body.classList.contains('mo-menu'))) hong.push('Esc không đóng ngăn ☰');
       else if (!(await ve(() => document.activeElement === document.querySelector('[data-act="mo-menu"]')))) hong.push('focus không về chỗ cũ: Esc ở ngăn ☰');
     }
-    if (goc) return hong;   // trang thật: hộp sửa việc cần dòng việc gieo ⇒ bỏ (BO_NGOAI)
     const SUA = '[data-man="cos"] [data-viec] [data-act="sua"]';
-    await ve(() => { location.hash = '#cos'; }); await page.locator(SUA).first().waitFor({ timeout: 5000 });
+    await ve(() => { location.hash = '#cos'; });
+    if (goc) {
+      await page.locator('[data-man="cos"] [data-brief]').waitFor({ timeout: 5000 });
+      const n = await page.locator(SUA).count(), bat = await page.locator(SUA + ':enabled').count();
+      if (!bat) { bo.push('bàn phím hộp sửa việc · trang thật ' + (n ? 'có dòng việc nhưng nút sửa tắt (cos_ghi tắt)' : 'không có dòng việc')); return hong; }
+    }
+    await page.locator(SUA).first().waitFor({ timeout: 5000 });
     await ve(() => document.getElementById('noi-dung').focus());
     if (!(await tabToi(page, SUA))) throw Error('Tab không tới nút sửa việc đầu');
     const nut = await page.evaluateHandle(() => document.activeElement);
@@ -191,9 +203,9 @@ try {
       if (pha) await page.evaluate(css => { const s = new CSSStyleSheet(); s.replaceSync(css); document.adoptedStyleSheets = [...document.adoptedStyleSheets, s]; }, PHA);
       const kq = await doTrang(page, goc ? 'url' : null), ngoai = [];
       ngoai.push(...await doLoiVao(page));   // R8
-      ngoai.push(...await doBanPhim(page));   // bàn phím
+      ngoai.push(...await doBanPhim(page, kq.bo));   // bàn phím
       kq.hong.push(...ngoai); kq.dat &&= !ngoai.length;
-      const cuoi = i === cacCo.length - 1, bo = goc ? [...(kq.bo ?? []), ...BO_NGOAI, ...(cuoi ? [BO_HET] : [])] : null;
+      const cuoi = i === cacCo.length - 1, bo = goc ? [...kq.bo, ...(cuoi ? [BO_HET] : [])] : null;
       if (!dong(tenCo([width, height, colorScheme]), kq, loi, mang, ghi, bo)) sai++;
       if (!cuoi || goc) continue;
       // Màn Hết phiên: cầu bỏ vé ⇒ 401 ở lần gọi API kế ⇒ trang tự chuyển màn. Lỗi «401» của trình duyệt ở bước này là chủ ý.

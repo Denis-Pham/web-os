@@ -300,7 +300,9 @@ async (CU = [], CHE_DO = null) => {
   // Hoàn tác, liên kết thanh trái; [data-act] từ vòng sửa 1: bộ nghe chung giao-dien.js chạy hành động cho MỌI phần tử mang nó), đóng hộp sau
   // mỗi cú bấm, rồi so việc + lịch + nhật ký trước/sau. Đề xuất chờ không so (ruling 4b, như Hỏi AI).
   // /api/nhat-ky trả ≤ 200 dòng ⇒ «số nhật ký» = số dòng kèm id mới nhất (đếm trần 200 không đổi khi thêm dòng).
-  const soNhatKy = async () => { const n = (await lay('/api/nhat-ky')).nhat_ky; return n.length + ':' + (n[0]?.id ?? 0); };
+  // Trang thật (chiDoc, Pha C Task 5 L2): /api/nhat-ky là cửa sổ trượt 24 giờ (may-chu/api.mjs:90–93) ⇒ dòng cũ trôi ra giữa hai lần chụp làm số dòng
+  // giảm (đỏ-sai); ghi từ trang đã bị chanGhi chặn và vào `ghi` ⇒ chỉ so id mới nhất (dòng mới đổi nó, dòng trôi ra thì không).
+  const soNhatKy = async () => { const n = (await lay('/api/nhat-ky')).nhat_ky, id = n[0]?.id ?? 0; return chiDoc ? String(id) : n.length + ':' + id; };
   const anhR7 = async () => DL(await trangThai()) + '|' + await soNhatKy();
   const BO_R7 = '[data-act="mo-menu"],[data-act="hoi-ai"],[data-act="hoan-tac"],#cac-mach *';
   const bamHet = async (goc, ve, ten) => {   // goc() hỏi lại mỗi vòng: cú bấm có thể vẽ lại màn
@@ -318,10 +320,12 @@ async (CU = [], CHE_DO = null) => {
       await bamHet(() => document, async () => { if (location.hash !== '#' + m) await toi(m); }, 'màn ' + m);
       if (await anhR7() !== a0) hong('màn chỉ xem đổi trạng thái: ' + m);
     }
-    if (chiDoc) { boQua('R7 nhóm Việc nhà · cần viec-bo.json mẫu'); return; }
+    // Nhóm Việc nhà luôn vẽ cùng lượt với [data-brief] mà toi('cos') đợi (web/viec-lich.js:35–38, :48–51; «chưa nối» vẫn trong nhóm) ⇒ vắng = hỏng,
+    // cả ở trang thật.
     await toi('cos'); const g = () => document.querySelector('[data-man="cos"] [data-nhom="viec-nha"]');
     if (!hien(g())) { hong('thiếu nhóm Việc nhà'); return; }
-    if (!$$('[data-viec-bo]', g()).some(hien)) { hong('thiếu dòng Việc nhà'); return; }   // chay-do dựng máy với viec-bo.json mẫu (vòng sửa 1)
+    // chay-do chế độ cũ dựng máy với viec-bo.json mẫu (vòng sửa 1) ⇒ thiếu dòng = hỏng; trang thật (Pha C Task 5 L3) chưa có dòng ⇒ bỏ.
+    if (!$$('[data-viec-bo]', g()).some(hien)) { if (chiDoc) boQua('R7 nhóm Việc nhà · trang thật không có dòng Việc nhà'); else hong('thiếu dòng Việc nhà'); return; }
     const a0 = await anhR7();
     await bamHet(g, async () => { if (location.hash !== '#cos') await toi('cos'); }, 'nhóm Việc nhà');
     if (await anhR7() !== a0) hong('màn chỉ xem đổi trạng thái: nhóm Việc nhà');

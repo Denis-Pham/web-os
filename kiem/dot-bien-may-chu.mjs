@@ -697,7 +697,7 @@ const NHOM = {
     ['do-r8-goi', CHAY_DO, 'ngoai.push(...await doLoiVao(page));   // R8', 'ngoai.push(...[]);   // R8', T_DC('r8')],
     ['do-r11-ham', DBT, " || i.getAttribute('max') !== '2100-12-31'", '', T_DC('r11')],
     ['do-r11-goi', DBT, "if (!CU.includes('R11')) {", 'if (false) {', T_DC('r11')],
-    ['do-ban-phim-goi', CHAY_DO, 'ngoai.push(...await doBanPhim(page));   // bàn phím', 'ngoai.push(...[]);   // bàn phím', T_DC('ban-phim')],
+    ['do-ban-phim-goi', CHAY_DO, 'ngoai.push(...await doBanPhim(page, kq.bo));   // bàn phím', 'ngoai.push(...[]);   // bàn phím', T_DC('ban-phim')],
   ],
   // Pha C Task 2: chay-do --url (trang thật, chỉ đọc) — chặn ghi · quyền tệp cookie · cấm --pha/--va cùng --url. Mỗi cổng hàm + chỗ gọi.
   C2: [
@@ -712,6 +712,19 @@ const NHOM = {
     ['url-tham-so-la-ham', CHAY_DO, '/^--[^=]+=/.test(x) || ', '', T_URL],
     ['url-tham-so-la-goi', CHAY_DO, 'const la = thamSoLa(process.argv.slice(2));', 'const la = undefined;', T_URL],
     ['url-debug-pw-ham', CHAY_DO, "/pw/i.test(process.env.DEBUG ?? '')", 'false', T_URL],
+    // Pha C Task 5 (gác LOW từ soát Task 2). L4 cờ nhận giá trị thiếu giá trị ⇒ rc 2 (hàm: bỏ nhánh «kế là cờ» · chỗ gọi: bỏ lời gọi) — ca (h).
+    ['url-thieu-gia-tri-ham', CHAY_DO, "(a[i + 1] ?? '-').startsWith('-')", 'a[i + 1] === undefined', T_URL],
+    ['url-thieu-gia-tri-goi', CHAY_DO, 'const thieu = thieuGiaTri(process.argv.slice(2));', 'const thieu = undefined;', T_URL],
+    // L2 nhật ký trang thật chỉ so id mới nhất (hàm: so cả số dòng ⇒ ca (i) · chỗ gọi: anhR7 bỏ nhật ký ⇒ đối chứng (j)).
+    ['url-nhat-ky-id-ham', DBT, 'return chiDoc ? String(id) :', 'return false ? String(id) :', T_URL],
+    ['url-nhat-ky-id-goi', DBT, "+ '|' + await soNhatKy();", "+ '|' + 0;", T_URL],
+    // L3 R7 nhóm Việc nhà ở trang thật có dòng (hàm: không bấm khi chiDoc ⇒ ca (l) · cổng: luôn bỏ khi chiDoc ⇒ ca (k)/(l)).
+    ['url-r7-nha-ham', DBT, "await bamHet(g, async () => { if (location.hash !== '#cos') await toi('cos'); }, 'nhóm Việc nhà');",
+      "if (!chiDoc) await bamHet(g, async () => { if (location.hash !== '#cos') await toi('cos'); }, 'nhóm Việc nhà');", T_URL],
+    ['url-r7-nha-goi', DBT, "if (!$$('[data-viec-bo]', g()).some(hien)) {", "if (chiDoc || !$$('[data-viec-bo]', g()).some(hien)) {", T_URL],
+    // L3 bàn phím hộp sửa việc ở trang thật có nút sửa bật (hàm: luôn bỏ ⇒ ca (k)/(l) · chỗ gọi: mục bỏ không tới `bo` ⇒ ca (a)/(m)).
+    ['url-ban-phim-sua-ham', CHAY_DO, 'if (!bat) {', 'if (true) {', T_URL],
+    ['url-ban-phim-sua-goi', CHAY_DO, 'doBanPhim(page, kq.bo)', 'doBanPhim(page, [])', T_URL],
   ],
 };
 
