@@ -289,15 +289,16 @@ async (CU = [], CHE_DO = null) => {
       } finally { await dongHop(hop()); await datLai(); }
     });
   }
-  // R7 (lượt 4b): màn chỉ xem = chu + 10 màn mach.js + nhóm Việc nhà. Bấm MỌI button, [role=button], input hiện (trừ ☰, Hỏi AI, Hoàn tác,
-  // liên kết thanh trái), đóng hộp sau mỗi cú bấm, rồi so việc + lịch + nhật ký trước/sau. Đề xuất chờ không so (ruling 4b, như Hỏi AI).
+  // R7 (lượt 4b): màn chỉ xem = chu + 10 màn mach.js + nhóm Việc nhà. Bấm MỌI button, [role=button], input, [data-act] hiện (trừ ☰, Hỏi AI,
+  // Hoàn tác, liên kết thanh trái; [data-act] từ vòng sửa 1: bộ nghe chung giao-dien.js chạy hành động cho MỌI phần tử mang nó), đóng hộp sau
+  // mỗi cú bấm, rồi so việc + lịch + nhật ký trước/sau. Đề xuất chờ không so (ruling 4b, như Hỏi AI).
   // /api/nhat-ky trả ≤ 200 dòng ⇒ «số nhật ký» = số dòng kèm id mới nhất (đếm trần 200 không đổi khi thêm dòng).
   const soNhatKy = async () => { const n = (await lay('/api/nhat-ky')).nhat_ky; return n.length + ':' + (n[0]?.id ?? 0); };
   const anhR7 = async () => DL(await trangThai()) + '|' + await soNhatKy();
   const BO_R7 = '[data-act="mo-menu"],[data-act="hoi-ai"],[data-act="hoan-tac"],#cac-mach *';
   const bamHet = async (goc, ve, ten) => {   // goc() hỏi lại mỗi vòng: cú bấm có thể vẽ lại màn
     for (let i = 0; ; i++) {
-      const ds = $$('button,[role=button],input', goc()).filter(b => hien(b) && !b.matches(BO_R7));
+      const ds = $$('button,[role=button],input,[data-act]', goc()).filter(b => hien(b) && !b.matches(BO_R7));
       if (i >= ds.length) return;
       if (i >= 60) throw Error(ten + ': quá 60 nút');
       await bamEl(ds[i], (ds[i].getAttribute('aria-label') || ds[i].textContent || ds[i].tagName).trim().slice(0, 20));
@@ -312,6 +313,7 @@ async (CU = [], CHE_DO = null) => {
     }
     await toi('cos'); const g = () => document.querySelector('[data-man="cos"] [data-nhom="viec-nha"]');
     if (!hien(g())) { hong('thiếu nhóm Việc nhà'); return; }
+    if (!$$('[data-viec-bo]', g()).some(hien)) { hong('thiếu dòng Việc nhà'); return; }   // chay-do dựng máy với viec-bo.json mẫu (vòng sửa 1)
     const a0 = await anhR7();
     await bamHet(g, async () => { if (location.hash !== '#cos') await toi('cos'); }, 'nhóm Việc nhà');
     if (await anhR7() !== a0) hong('màn chỉ xem đổi trạng thái: nhóm Việc nhà');

@@ -46,6 +46,16 @@ const CAY = [ // [tên, tệp, chuỗi cũ (đúng 1 chỗ), chuỗi mới, lý 
   // (đo 4c: bản cấy đó vẫn rc 0 sau khi có phép bàn phím). Cấy làm focus thật sự không về: traFocus bỏ focus đang có.
   ['Esc không trả focus', 'giao-dien.js', 'function traFocus() { traVe?.focus(); traVe = null; }', 'function traFocus() { document.activeElement?.blur(); traVe = null; }',
     'focus không về chỗ cũ', '375x812-light', null],
+  // vòng sửa 1: R7 bấm cả phần tử không phải nút có data-act (bộ nghe chung giao-dien.js chạy hành động cho MỌI [data-act]); lo null: bộ đo CŨ
+  // dò tên data-act nên bắt được. Hành động ghi mới đăng ký trong cấy (mach.js không nhập giao-dien.js ⇒ import động); lớp nut-lk (cao 44) để
+  // cấy CHỈ phạm R7 (span trần bị phép «nút <44» bắt trước — đo vòng sửa 1).
+  ['Màn chỉ xem có phần tử data-act ghi', 'mach.js', `    if (id !== 'hoc') { than.append(chuaNoi()); return; }`,
+    `    if (id !== 'hoc') { import('./giao-dien.js').then(g => g.dangKyHanhDong('ghi-an', () => fetch('/api/goi', { method: 'POST', headers: { 'X-WebOS': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ khoa_lap: crypto.randomUUID(), ops: [{ loai: 'them', bang: 'viec', truong: { tieu_de: 'Việc ẩn' } }] }) }))); than.append(chuaNoi(), el('span', { class: 'nut-lk', 'data-act': 'ghi-an' }, 'Xem thêm')); return; }`,
+    'màn chỉ xem đổi trạng thái: y-tuong', '375x812-light', null],
+  // vòng sửa 1: dòng Việc nhà (chỉ có khi chay-do dựng máy với xuatVao mẫu) mang nút ghi KHÔNG data-act; bộ đo CŨ dò tên data-act ⇒ lọt.
+  ['Dòng Việc nhà có nút ghi', 'viec-lich.js', `x => el('li', { 'data-viec-bo': x.id }, el('strong', {}, x.ten),`,
+    `x => el('li', { 'data-viec-bo': x.id }, (b => { b.addEventListener('click', () => fetch('/api/goi', { method: 'POST', headers: { 'X-WebOS': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ khoa_lap: crypto.randomUUID(), ops: [{ loai: 'them', bang: 'viec', truong: { tieu_de: 'Việc ẩn' } }] }) })); return b; })(el('button', { type: 'button' }, 'Ghim')), el('strong', {}, x.ten),`,
+    'màn chỉ xem đổi trạng thái: nhóm Việc nhà', '375x812-light', 'R7'],
 ];
 const chon = process.argv.slice(2), ds = chon.length ? CAY.filter(c => chon.includes(c[0])) : CAY;
 const chay = (...a) => spawnSync(process.execPath, [doDemo, ...a], { encoding: 'utf8', timeout: 240000 });

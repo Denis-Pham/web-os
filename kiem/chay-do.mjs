@@ -7,6 +7,8 @@
 // Lượt 4c: sau phép trong trang, mỗi cỡ chạy phép ngoài trang R8 (doLoiVao) và bàn phím (doBanPhim) — chuột/phím THẬT của Playwright;
 // R11 (trong trang) bật goiAI giả trả hạn ngoài miền qua móc trang __aiNgoaiMien (biến đóng aiNgoaiMien ở đây, không dựng máy thứ hai).
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { moTrinh, dungMay, datBan, trangMoi } from '../test-web/chung-web.mjs';
 import { goi } from '../test-may-chu/chung.mjs';
 
@@ -22,6 +24,7 @@ if (!cacCo.length || (chon && cacCo.length !== chon.length)) { console.error('c�
 const PHA = 'button,a{min-height:0!important;min-width:0!important;padding:0!important;font-size:11px!important}';
 const SRC = fs.readFileSync(new URL('./do-ban-that.js', import.meta.url), 'utf8');
 const HET = '#noi-dung > section[data-man="het-phien"]';
+const MAU = fileURLToPath(new URL('../test-may-chu/mau/', import.meta.url));   // tệp xuất mẫu (như test-web/man-chu.test.mjs)
 
 let m;
 const ngayCong = (s, n) => new Date(Date.parse(s.slice(0, 10)) + n * 864e5).toISOString().slice(0, 10) + s.slice(10);
@@ -113,9 +116,14 @@ const doBanPhim = async page => {
 };
 
 const trinh = await moTrinh();
-let sai = 0;
+let sai = 0, xuat = null;
 try {
-  m = await dungMay({ cosGhi: true, goiAI });
+  // Vòng sửa 1: máy có thư mục xuất vào (trang-thai.json giờ dựng = lúc chạy + viec-bo.json mẫu, như man-chu.test) ⇒ 4 khối màn chủ từ tệp xuất
+  // và nhóm Việc nhà được đo CÓ dữ liệu (không còn chỉ ở trạng thái «chưa nối»).
+  xuat = fs.mkdtempSync(path.join(process.env.WO_GOC || '/tmp', 'wo-x-'));
+  fs.writeFileSync(path.join(xuat, 'trang-thai.json'), JSON.stringify({ ...JSON.parse(fs.readFileSync(path.join(MAU, 'trang-thai.json'), 'utf8')), gio_dung: new Date().toISOString() }));
+  fs.copyFileSync(path.join(MAU, 'viec-bo.json'), path.join(xuat, 'viec-bo.json'));
+  m = await dungMay({ cosGhi: true, goiAI, xuatVao: xuat });
   await datBan(m, { va });
   for (const [i, [width, height, colorScheme]] of cacCo.entries()) {
     const { ctx, page, loi, mang } = await trangMoi(trinh, m.url, { viewport: { width, height }, colorScheme });
@@ -141,5 +149,8 @@ try {
     } finally { aiNgoaiMien = false; m.cau.datVe(); await ctx.close(); }
   }
 } catch (e) { console.error(e); sai = -1; }
-finally { await trinh.close(); await m?.dong(); }
+finally {
+  await trinh.close(); await m?.dong();
+  if (xuat) { for (const t of fs.readdirSync(xuat)) fs.unlinkSync(path.join(xuat, t)); fs.rmdirSync(xuat); }
+}
 process.exitCode = sai < 0 ? 2 : sai ? 1 : 0;
