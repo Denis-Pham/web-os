@@ -1,15 +1,16 @@
 // Điểm vào giao diện (B1): thanh 12 mạch + #ban, ngăn ☰ (≤ 760 px: .workspace inert khi mở), định tuyến theo #, sổ màn (màn chưa có ⇒
-// giữ chỗ «chưa nối», R6). Hết phiên ở phien.js (định tuyến không vẽ màn nào khác sau khi hết). Xong khởi động ⇒ <html data-san="1">.
+// giữ chỗ «chưa nối», R6; #ban ở ban.js). Hết phiên ở phien.js (định tuyến không vẽ màn nào khác sau khi hết). Xong khởi động ⇒ <html data-san="1">.
 import { el } from './dom.js';
 import { datXuLy, LoiPhien, LoiChiDoc, LoiMang } from './api.js';
 import { bao, dangKyHanhDong, ganGiaoDien } from './giao-dien.js';
 import { batDau as batDauPhien, daHetPhien, daKiemPhien, dangKyDon } from './phien.js';
 import { MAN as CHU } from './man-chu.js';
+import { MAN as BAN } from './ban.js';
 import { MAN as KHAC, MACH, lienKet, urlNgoai, chuaNoi } from './mach.js';
 
 const $ = id => document.getElementById(id);
 const TEN = new Map([...MACH, ['ban', 'Bản giao diện']]);
-const SO_MAN = new Map([CHU, ...KHAC].map(m => [m.id, m]));
+const SO_MAN = new Map([CHU, BAN, ...KHAC].map(m => [m.id, m]));
 const giuCho = (id, ten) => ({ id, ten, ve(goc) { goc.append(el('div', { class: 'dau-man' }, el('h1', {}, ten)), el('div', { class: 'the' }, chuaNoi())); }, don() {} });
 
 function idHienTai() { const id = location.hash.slice(1); return TEN.has(id) ? id : 'chu'; }

@@ -19,6 +19,7 @@ const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs', KER = 'may-chu/kernel
 const DOM = 'web/dom.js', MAN_CHU = 'web/man-chu.js', T_KHUNG = ['test-web/khung.test.mjs'], T_MAN_CHU = ['test-web/man-chu.test.mjs'], T_TINH = ['test-web/tinh.test.mjs'];
 const PHIEN = 'web/phien.js', API_WEB = 'web/api.js', KHUNG = 'web/khung.js', T_PHIEN = ['test-web/phien.test.mjs'];
 const SW = 'web/sw.js', T_SW = ['test-web/sw.test.mjs'];
+const BAN_UI = 'web/ban.js', T_BAN_UI = ['test-web/ban-ui.test.mjs'], T_PHUC_HOI = ['test-web/phuc-hoi.test.mjs'];
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -619,6 +620,14 @@ const NHOM = {
     ['sw-claim', SW, '.then(() => self.clients.claim())', '', T_SW],
     ['phien-so-sha-ham', PHIEN, 'export const soSha = (cu, moi) => cu !== null && moi !== null && cu !== moi;', 'export const soSha = () => false;', T_SW],
     ['phien-so-sha-goi', PHIEN, '  if (soSha(SHA_TRANG, moi)) location.reload();\n', '', T_SW],
+    // B1 lượt 1d: /phuc-hoi giữ nút Lùi tắt sau khi lùi (hàm xongLui + chỗ gọi; neo cả đầu hàm — `$('lui').disabled = true;` có 2 chỗ, R8),
+    // gỡ SW lỗi bọc riêng (R8: catch ném lại) · màn #ban: xem tệp mang manifest (chỗ gọi) · 423 ⇒ chỉ đọc (hàm + chỗ gọi, B1-T3)
+    ['phuc-hoi-giu-tat-ham', BAN, "function xongLui(sha, goLoi) { $('lui').disabled = true; ", 'function xongLui(sha, goLoi) { ', T_PHUC_HOI],
+    ['phuc-hoi-giu-tat-goi', BAN, '    xongLui(sha, goLoi);\n', '', T_PHUC_HOI],
+    ['phuc-hoi-go-sw-ham', BAN, 'catch { goLoi = true; }', 'catch (e) { throw e; }', T_PHUC_HOI],
+    ['ban-ui-manifest-goi', BAN_UI, 'const q = new URLSearchParams({ sha: b.sha, ten, manifest: b.manifest });', 'const q = new URLSearchParams({ sha: b.sha, ten });', T_BAN_UI],
+    ['api-chi-doc-ham', API_WEB, 'export const laChiDoc = r => r.status === 423;', 'export const laChiDoc = r => false;', T_BAN_UI],
+    ['api-chi-doc-goi', API_WEB, '  if (laChiDoc(r)) { khiChiDoc(); throw new LoiChiDoc(); }\n', '', T_BAN_UI],
   ],
 };
 

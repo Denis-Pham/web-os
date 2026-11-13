@@ -230,13 +230,18 @@ const PHUC_HOI_JS = `'use strict';
     $('truoc').textContent = truoc === null ? '(không có)' : truoc;
     $('lui').disabled = truoc === null;
   }
+  // Lùi xong ⇒ nút GIỮ tắt (nap() vừa bật lại theo «trước» mới = bản vừa bỏ; bấm nữa là lùi tiếp sang nó) · gỡ SW lỗi ⇒ báo riêng, vẫn «Đã lùi».
+  function xongLui(sha, goLoi) { $('lui').disabled = true; bao('Đã lùi về bản ' + sha + '.' + (goLoi ? ' Chưa gỡ được service worker: đóng mọi tab của trang rồi mở lại.' : ' Mở lại trang chính để dùng bản này.')); }
   async function lui() {
     $('lui').disabled = true;
-    const sha = truoc, r = await fetch('/api/ban/lui', { method: 'POST', headers: { 'X-WebOS': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ sha }) });
+    const sha = truoc;
+    let r, goLoi = false;
+    try { r = await fetch('/api/ban/lui', { method: 'POST', headers: { 'X-WebOS': '1', 'Content-Type': 'application/json' }, body: JSON.stringify({ sha }) }); }
+    catch { bao('Lùi không được (lỗi mạng).'); return nap(); }
     if (!r.ok) { bao('Lùi không được (HTTP ' + r.status + ').'); return nap(); }
-    if (navigator.serviceWorker) for (const d of await navigator.serviceWorker.getRegistrations()) await d.unregister();
-    bao('Đã lùi về bản ' + sha + '.');
-    return nap();
+    try { if (navigator.serviceWorker) for (const d of await navigator.serviceWorker.getRegistrations()) await d.unregister(); } catch { goLoi = true; }
+    await nap().catch(() => {});   // đã lùi ở máy chủ: đọc lại trạng thái hỏng không đổi kết quả
+    xongLui(sha, goLoi);
   }
   $('lui').addEventListener('click', () => { lui().catch(() => bao('Lùi không được (lỗi mạng).')); });
   nap().catch(() => bao('Không đọc được trạng thái bản (lỗi mạng).'));

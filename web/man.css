@@ -36,3 +36,12 @@
 #hop { max-width: min(560px, calc(100vw - 32px)); padding: 18px; border: 1px solid var(--vien); border-radius: 12px; background: var(--the); color: var(--chu); }
 #hop::backdrop { background: var(--mo); }
 #hop h2 { margin: 0 0 12px; font-size: 20px; }
+
+.nhan-neo { margin: 0 0 8px; font-weight: 600; }
+.the-ban { margin-bottom: 14px; }
+.the-ban h2 { margin: 0 0 8px; font-size: 20px; }
+.dong-ban { margin: 0 0 6px; overflow-wrap: anywhere; }
+.ds-tep li { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; overflow-wrap: anywhere; }
+.xem-tep { margin: 10px 0; overflow-wrap: anywhere; }
+.xem-tep h3 { margin: 0 0 4px; font-size: 18px; }
+.xem-tep pre { margin: 0; padding: 10px; max-height: 60vh; overflow: auto; white-space: pre-wrap; background: var(--nen); border: 1px solid var(--vien); border-radius: 8px; }

@@ -49,15 +49,16 @@ export function cauNoi(may) {
 }
 
 // Máy chủ + thư mục bản/chờ của chính tiến trình test. ghiBan:false ⇒ máy thứ nhất duyệt bản rồi đóng; máy thứ hai CÙNG thuMucBan, bỏ
-// thuMucCho/uidCho ⇒ ghiBat sai ⇒ route bản 423 mà trang vẫn phục vụ. Trả { may, ch, mt, cau, url, dong() }; ch = cấu hình (đối tượng).
-export async function dungMay({ cosGhi = true, ghiBan = true, xuatVao = null, goiAI } = {}) {
+// thuMucCho/uidCho ⇒ ghiBat sai ⇒ route bản 423 mà trang vẫn phục vụ (va: cấy vào bản đó — sau đó không duyệt lại được). Trả { may, ch, mt,
+// cau, url, dong() }; ch = cấu hình (đối tượng).
+export async function dungMay({ cosGhi = true, ghiBan = true, xuatVao = null, goiAI, va = {} } = {}) {
   const mt = moiTruong(), uid = process.getuid(), ban = path.join(mt.tam, 'ban'), cho = path.join(mt.tam, 'cho');
   fs.mkdirSync(ban); fs.mkdirSync(path.join(cho, 'ban'), { recursive: true });
   const ch = { cosGhi, thuMucBan: ban, uidBan: uid, thuMucCho: cho, uidCho: uid, ...(xuatVao ? { thuMucXuatVao: xuatVao } : {}) };
   const tuy = goiAI ? { goiAI } : undefined;
   let may = await mt.may(ch, [], tuy);
   if (!ghiBan) {
-    await datBan({ may, ch });
+    await datBan({ may, ch }, { va });
     await may.dong();
     may = await mt.may(ch, ['thuMucCho', 'uidCho'], tuy);
   }
@@ -65,10 +66,11 @@ export async function dungMay({ cosGhi = true, ghiBan = true, xuatVao = null, go
   return { may, ch, mt, cau, url: cau.url, async dong() { await cau.dong(); await mt.dong(); } };
 }
 
-// Đường thật A5: chép web/ vào <thuMucCho>/ban/<sha> (va = { 'tệp': [[cũ, mới], …] }, mỗi `cũ` khớp ĐÚNG 1 chỗ) ⇒ GET /api/ban lấy manifest
-// ⇒ POST /api/ban/duyet ⇒ khẳng định hien_tai (R5) ⇒ xoá thư mục chờ của sha đó (giữ ≤ SO_CHO bản chờ). m = kết quả dungMay (cần may, ch).
-export async function datBan(m, { va = {} } = {}) {
-  const sha = crypto.createHash('sha1').update(crypto.randomUUID()).digest('hex'), d = path.join(m.ch.thuMucCho, 'ban', sha), ten = fs.readdirSync(WEB);
+// Bản chờ (chưa duyệt): chép web/ vào <thuMucCho>/ban/<sha> (va = { 'tệp': [[cũ, mới], …] }, mỗi `cũ` khớp ĐÚNG 1 chỗ; them = { tên: nội dung }
+// thêm/ghi đè tệp; bo = [tên] không chép) ⇒ sha. xoaCho xoá thư mục chờ đó (giữ ≤ SO_CHO bản chờ).
+export function datCho(m, { va = {}, them = {}, bo = [] } = {}) {
+  const sha = crypto.createHash('sha1').update(crypto.randomUUID()).digest('hex'), d = path.join(m.ch.thuMucCho, 'ban', sha);
+  const ten = fs.readdirSync(WEB).filter(t => !bo.includes(t));
   for (const t of Object.keys(va)) if (!ten.includes(t)) throw new Error('cấy vào tệp không có: ' + t);
   fs.mkdirSync(d);
   for (const t of ten) {
@@ -84,14 +86,25 @@ export async function datBan(m, { va = {} } = {}) {
     }
     fs.writeFileSync(path.join(d, t), b);
   }
+  for (const [t, s] of Object.entries(them)) fs.writeFileSync(path.join(d, t), s);
+  return sha;
+}
+export function xoaCho(m, sha) {
+  const d = path.join(m.ch.thuMucCho, 'ban', sha);
+  for (const t of fs.readdirSync(d)) fs.unlinkSync(path.join(d, t));
+  fs.rmdirSync(d);
+}
+
+// Đường thật A5: datCho ⇒ GET /api/ban lấy manifest ⇒ POST /api/ban/duyet ⇒ khẳng định hien_tai (R5) ⇒ xoaCho. m = kết quả dungMay (cần may, ch).
+export async function datBan(m, { va = {} } = {}) {
+  const sha = datCho(m, { va });
   const c = (await goi(m.may, '/api/ban')).json?.cho?.find(x => x.sha === sha);
   assert.ok(c?.manifest, 'bản chờ hỏng: ' + (c?.loi ?? 'không thấy'));
   const r = await goi(m.may, '/api/ban/duyet', { method: 'POST', dau: DAU_GHI, than: JSON.stringify({ sha, manifest: c.manifest }) });
   assert.equal(r.ma, 200, r.than);
   assert.equal(r.json.hien_tai, sha);
   assert.equal((await goi(m.may, '/api/ban')).json.hien_tai.sha, sha);
-  for (const t of fs.readdirSync(d)) fs.unlinkSync(path.join(d, t));
-  fs.rmdirSync(d);
+  xoaCho(m, sha);
   return sha;
 }
 
