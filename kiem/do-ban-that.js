@@ -61,6 +61,10 @@ async (CU = [], CHE_DO = null) => {
   window.fetch = function (...a) { dangGoi++; return fetchGoc.apply(this, a).finally(() => { dangGoi--; }); };
   const cho = async (f, ms = 5000) => { for (const t = Date.now(); !f(); await ngu(25)) if (Date.now() - t > ms) return false; return true; };
   const yen = async () => { let on = 0; for (const t = Date.now(); on < 4 && Date.now() - t < 5000; await ngu(20)) on = dangGoi ? 0 : on + 1; };
+  // Hộp/ngăn vừa mở còn chạy hiệu ứng (hien-hop 160 ms, nen.css:74) ⇒ do1 đo giữa chừng ra cao 44 ± 3e-5 ⇒ «nút <44» chập chờn (task-3-sua1-report).
+  // Chờ mọi hiệu ứng của trang xong rồi mới đo; hạn 1 s để hiệu ứng vô hạn không treo. KHÔNG nới phép so 44.
+  const choHieuUng = async () => { const a = document.documentElement.getAnimations({ subtree: true });
+    if (a.length) await Promise.race([Promise.allSettled(a.map(x => x.finished)), ngu(1000)]); };
 
   // Trạng thái qua API thật (thay window.DEMO): bỏ phien_ban, sua_luc (ghi/Hoàn tác tăng chúng).
   const hom = (them = 0) => new Date(Date.now() + 7 * 3600e3 + them * 864e5).toISOString().slice(0, 10);   // ngày giờ VN
@@ -153,7 +157,7 @@ async (CU = [], CHE_DO = null) => {
       // màn hẹp: khối gập phải mở được, mở ra thì đo luôn phần bên trong (soát chung 11/11 phát hiện 5/16)
       const gap = mo => $$('[data-act="gap"]', el).find(b => hien(b) && b.getAttribute('aria-expanded') === String(mo));
       if (!gap(false)) { if (!hien(el)) hong('khối ' + k + ' không thấy, không có nút mở'); continue; }
-      const n0 = $$('*', el).filter(hien).length; await bamEl(gap(false), 'mở ' + k);
+      const n0 = $$('*', el).filter(hien).length; await bamEl(gap(false), 'mở ' + k); await choHieuUng();
       if ($$('*', el).filter(hien).length <= n0) hong('khối ' + k + ': bấm mở không hiện thêm gì');
       const t = tomTat(do1()); if (t) hong('khối ' + k + ' khi mở: ' + t);
       if (gap(true)) await bamEl(gap(true), 'gập ' + k);
@@ -181,7 +185,7 @@ async (CU = [], CHE_DO = null) => {
     kq.cos.push(ten);
   });
   await hoanTacVe('thêm việc', async () => {
-    await bam('them-viec'); const t = tomTat(do1()); if (t) hong('form việc: ' + t);
+    await bam('them-viec'); await choHieuUng(); const t = tomTat(do1()); if (t) hong('form việc: ' + t);
     dien('tieu_de', 'Việc thử đo'); dien('han', hom(7)); await bam('luu');
     if (!(await trangThai()).viec.some(v => v.tieu_de === 'Việc thử đo')) throw Error('không thấy việc mới');
     if (!dongCo('viec', 'Việc thử đo')) throw Error('màn không hiện việc mới');
@@ -218,7 +222,7 @@ async (CU = [], CHE_DO = null) => {
     await veCos(); const s0 = await trangThai(), j0 = DL(s0);
     await bam('hoi-ai'); let h = hop(); if (!h) throw Error('không mở hộp');
     if (!$$('[data-de-xuat]', h).some(hien)) throw Error('không có đề xuất');
-    const t = tomTat(do1()); if (t) hong('hộp AI: ' + t);
+    await choHieuUng(); const t = tomTat(do1()); if (t) hong('hộp AI: ' + t);
     if (DL(await trangThai()) !== j0) throw Error('hiện đề xuất đã ghi dữ liệu');
     await bam('bo-qua', h); if (DL(await trangThai()) !== j0) throw Error('Bỏ qua đổi dữ liệu');
     await dongHop(hop());
