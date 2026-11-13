@@ -15,6 +15,7 @@
 .so-khoi { color: var(--nhan); font-variant-numeric: tabular-nums; }
 .nut-gap { display: none; }
 .than-khoi { overflow-wrap: anywhere; }
+[data-khoi="nhat_ky"] .than-khoi { max-height: 20rem; overflow-y: auto; }   /* ≤ 200 dòng: cuộn trong khối, hàng khối thứ hai ở 1440×900 không xuống dưới nếp gấp */
 .ds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .ds li { display: flex; flex-direction: column; padding-top: 6px; border-top: 1px solid var(--vien); }
 .ds li:first-child { padding-top: 0; border-top: 0; }
