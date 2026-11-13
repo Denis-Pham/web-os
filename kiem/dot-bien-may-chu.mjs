@@ -17,7 +17,7 @@ const KHO = 'may-chu/kho.mjs', GOI = 'may-chu/goi.mjs';
 const XT = 'may-chu/xac-thuc.mjs', API = 'may-chu/api.mjs', MC = 'may-chu/may-chu.mjs', CH = 'may-chu/cau-hinh.mjs';
 const SL = 'may-chu/sao-luu.mjs', XU = 'may-chu/xuat.mjs', KER = 'may-chu/kernel.mjs', BAN = 'may-chu/ban.mjs';
 const DOM = 'web/dom.js', MAN_CHU = 'web/man-chu.js', T_KHUNG = ['test-web/khung.test.mjs'], T_MAN_CHU = ['test-web/man-chu.test.mjs'], T_TINH = ['test-web/tinh.test.mjs'];
-const PHIEN = 'web/phien.js', API_WEB = 'web/api.js', T_PHIEN = ['test-web/phien.test.mjs'];
+const PHIEN = 'web/phien.js', API_WEB = 'web/api.js', KHUNG = 'web/khung.js', T_PHIEN = ['test-web/phien.test.mjs'];
 const LOI_403_HOAN = "throw new LoiGoi(403, 'quyen', { bang: 'goi_ghi', loai: 'hoan_tac' });\n";
 
 // [tên, tệp, chuỗi gốc (phải khớp ĐÚNG 1 chỗ), chuỗi thay]. Mỗi cổng hai đột biến: trong hàm (-ham) và ở chỗ gọi (-goi).
@@ -600,6 +600,13 @@ const NHOM = {
     ['api-het-phien-ham', API_WEB, "export const laHetPhien = r => r.type === 'opaqueredirect' || r.status === 401 || r.status === 403;", 'export const laHetPhien = r => false;', T_PHIEN],
     ['api-het-phien-goi', API_WEB, '  if (laHetPhien(r)) { khiHetPhien(); throw new LoiPhien(); }\n', '', T_PHIEN],
     ['api-redirect', API_WEB, "redirect: 'manual'", "redirect: 'follow'", T_PHIEN],
+    // B1 vòng sửa 1: chưa hẹn được het_luc ⇒ không vẽ (hàm + chỗ gọi ở veMan) · phản hồi /api/man-chu về sau het_luc không vào lại đệm ·
+    // xoá đệm khi hết phiên: don() của màn chủ (hàm) + đăng ký don ở khung.js (chỗ gọi)
+    ['phien-chua-kiem-ham', PHIEN, 'export async function daKiemPhien() {', 'export async function daKiemPhien() { return true;', T_PHIEN],
+    ['phien-chua-kiem-goi', KHUNG, '  if (!(await daKiemPhien())) return;   // chưa hẹn được het_luc ⇒ không vẽ dữ liệu\n', '', T_PHIEN],
+    ['man-chu-het-phien-goi', MAN_CHU, '    if (daHetPhien()) return;   // phản hồi về sau het_luc (đã don()) ⇒ không đưa lại vào đệm\n', '', T_PHIEN],
+    ['man-chu-don-ham', MAN_CHU, 'don() { duLieu = null; }', 'don() {}', T_PHIEN],
+    ['khung-dang-ky-don-goi', KHUNG, '  for (const m of SO_MAN.values()) dangKyDon(() => m.don());\n', '', T_PHIEN],
   ],
 };
 

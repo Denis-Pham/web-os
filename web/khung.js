@@ -3,7 +3,7 @@
 import { el } from './dom.js';
 import { datXuLy, LoiPhien, LoiChiDoc, LoiMang } from './api.js';
 import { bao, dangKyHanhDong, ganGiaoDien } from './giao-dien.js';
-import { batDau as batDauPhien, daHetPhien, dangKyDon } from './phien.js';
+import { batDau as batDauPhien, daHetPhien, daKiemPhien, dangKyDon } from './phien.js';
 import { MAN as CHU } from './man-chu.js';
 import { MAN as KHAC, MACH, lienKet, urlNgoai, chuaNoi } from './mach.js';
 
@@ -20,8 +20,9 @@ function loiMan(e) {
   else bao('Máy chủ báo lỗi: ' + (e?.loi ?? e?.message ?? 'không rõ') + '.');
 }
 
-function veMan() {
+async function veMan() {
   if (daHetPhien()) return;
+  if (!(await daKiemPhien())) return;   // chưa hẹn được het_luc ⇒ không vẽ dữ liệu
   const id = idHienTai(), man = SO_MAN.get(id) ?? giuCho(id, TEN.get(id)), goc = el('section', { 'data-man': id, 'aria-label': TEN.get(id) });
   $('noi-dung').replaceChildren(goc);
   $('ten-man').textContent = TEN.get(id);

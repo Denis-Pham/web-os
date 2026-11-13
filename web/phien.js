@@ -38,6 +38,18 @@ export async function kiemLai() {
   try { await docPhien(); } catch { /* xem chú thích trên */ }
 }
 
+function baoLoiPhien(e) {
+  if (e instanceof LoiMang) bao('Mất kết nối — chưa kiểm được phiên.');
+  else if (!(e instanceof LoiPhien)) bao('Máy chủ báo lỗi khi kiểm phiên: ' + (e?.loi ?? e?.message ?? 'không rõ') + '.');
+}
+
+// Định tuyến gọi trước khi vẽ màn: chưa hẹn được het_luc (khởi động gặp LoiMang / lỗi máy chủ) ⇒ hỏi lại /api/phien;
+// true CHỈ khi đã hẹn được het_luc và chưa hết phiên ⇒ không màn dữ liệu nào hiện mà không có hẹn xoá.
+export async function daKiemPhien() {
+  if (het === null) try { await docPhien(); } catch (e) { baoLoiPhien(e); }
+  return het !== null && !daHet;
+}
+
 function veHetPhien() {
   $('noi-dung').append(el('section', { 'data-man': 'het-phien', 'aria-label': 'Hết phiên' },
     el('div', { class: 'the het-phien' }, el('h1', {}, 'Hết phiên'),
@@ -63,9 +75,5 @@ export async function batDau() {
   datXuLy({ hetPhien: xoaDuLieu });
   window.addEventListener('pageshow', kiemLai);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kiemLai(); });
-  try { await docPhien(); return true; } catch (e) {
-    if (e instanceof LoiMang) bao('Mất kết nối — chưa kiểm được phiên.');
-    else if (!(e instanceof LoiPhien)) bao('Máy chủ báo lỗi khi kiểm phiên: ' + (e?.loi ?? e?.message ?? 'không rõ') + '.');
-    return false;
-  }
+  try { await docPhien(); return true; } catch (e) { baoLoiPhien(e); return false; }
 }

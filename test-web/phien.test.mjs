@@ -10,6 +10,8 @@ import { ve, giayNay } from '../test-may-chu/chung.mjs';
 const NEO_PAGESHOW = "window.addEventListener('pageshow', kiemLai);";
 const NEO_HIEN_LAI = "document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kiemLai(); });";
 const NEO_DON = 'for (const f of DON) f();';
+const NEO_CHUA_KIEM = 'if (!(await daKiemPhien())) return;';   // khung.js veMan
+const NEO_MC_HET = 'if (daHetPhien()) return;';   // man-chu.js trước khi gán đệm
 const HET = '#noi-dung > section[data-man="het-phien"]';
 const BI_MAT = 'VIEC-BI-MAT-' + crypto.randomBytes(8).toString('hex');
 const homNay = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
@@ -27,7 +29,7 @@ async function mo(v, dongHo = true) {
   const t = await trangMoi(trinh, m.url);
   if (dongHo) await t.page.clock.install();
   await t.page.goto(m.url + '/#chu');
-  await t.page.locator('[data-khoi="lich_hom_nay"] [data-viec]').first().waitFor();
+  await t.page.locator('[data-khoi="lich_hom_nay"] [data-viec]').first().waitFor({ timeout: 10_000 });   // đột biến không vẽ ⇒ đỏ sau 10 s, không 30 s
   return t;
 }
 const choHet = page => page.locator(HET).waitFor({ timeout: 3000 }).catch(() => {});
@@ -53,6 +55,7 @@ async function treoRoiHien(phat) {
     await page.clock.pauseAt(Date.now() + 1000);
     await page.clock.setSystemTime(Date.now() + 300_000);
     m.cau.datVe(null);
+    await ctx.setOffline(true);   // quá het_luc ⇒ phải xoá NGAY không cần mạng (không dựa vào 401 của /api/phien)
     await page.evaluate(phat);
     await choHet(page);
     return { ...(await dem(page)), loi };
@@ -99,6 +102,74 @@ test('B1-Đ3 het_luc xoá DOM và biến JS kể cả mất mạng; đối chứ
     } finally { await datBan(m); }
   }
 });
+
+// Phản hồi /api/man-chu gửi trước het_luc (máy chủ còn 200) về SAU khi hẹn giờ đã xoá ⇒ không được vào lại đệm duLieu (heap).
+async function manChuVeSauHet() {
+  const { ctx, page, loi } = await mo(veNgan());
+  try {
+    let giu;
+    const daGiu = new Promise(ok => { giu = ok; });
+    await page.route('**/api/man-chu', r => giu(r));
+    await page.locator('#cac-mach a[href="#hoc"]').click();
+    await page.locator('#cac-mach a[href="#chu"]').click();
+    const r = await daGiu;
+    await page.clock.fastForward(130_000);
+    await choHet(page);
+    const xong = page.waitForEvent('requestfinished', x => new URL(x.url()).pathname === '/api/man-chu');
+    await r.continue();
+    await xong;
+    await page.evaluate(() => new Promise(ok => setTimeout(ok, 200)));   // JS của trang xử lý xong phản hồi
+    return { ...(await dem(page)), sau: await heapCo(page, BI_MAT), loi };
+  } finally { m.cau.datVe(); await ctx.close(); }
+}
+
+test('B1-Đ3 đua: phản hồi /api/man-chu về sau het_luc ⇒ bí mật không vào lại heap; đối chứng bỏ chặn daHetPhien ở man-chu.js ⇒ còn', async () => {
+  assert.deepEqual(await manChuVeSauHet(), { viec: 0, khoi: 0, het: 1, sau: false, loi: [] });
+  if (DOI_CHUNG) {
+    await datBan(m, { va: { 'man-chu.js': [[NEO_MC_HET, '']] } });
+    try {
+      const cay = await manChuVeSauHet();
+      assert.ok(cay.het === 1 && cay.sau, JSON.stringify(cay));
+    } finally { await datBan(m); }
+  }
+});
+
+// /api/phien lỗi lúc mở (mất mạng / 503 JWKS chết) ⇒ chưa hẹn được het_luc ⇒ bấm #chu: veMan hỏi lại phiên, vẫn lỗi ⇒ không vẽ dữ liệu;
+// mạng về ⇒ kiểm được ⇒ vẽ. Trả { viec lúc lỗi, hoi = số lần gọi /api/phien do cú bấm, sau = có việc sau khi mạng về }.
+async function phienLoiLucMo(loiPhien) {
+  m.cau.datVe();
+  const { ctx, page } = await trangMoi(trinh, m.url);
+  try {
+    let lan = 0;
+    const choLan = async n => { for (let i = 0; lan < n && i < 250; i++) await new Promise(ok => setTimeout(ok, 20)); };   // trần 5 s
+    await page.route('**/api/phien', r => { lan++; return loiPhien(r); });
+    await page.goto(m.url + '/#hoc');
+    await page.locator('html[data-san="1"]').waitFor();
+    await choLan(2);   // lúc mở: batDau và pageshow (kiemLai) đều hỏi /api/phien
+    const goc = lan;
+    await page.locator('#cac-mach a[href="#chu"]').click();
+    await Promise.race([choLan(goc + 1), page.locator('[data-viec]').first().waitFor({ timeout: 5000 })]).catch(() => {});
+    const viec = await page.locator('[data-viec]').count(), hoi = lan - goc;
+    await page.unroute('**/api/phien');
+    await page.locator('#cac-mach a[href="#hoc"]').click();
+    await page.locator('#cac-mach a[href="#chu"]').click();
+    const sau = await page.locator('[data-viec]').first().waitFor({ timeout: 5000 }).then(() => true, () => false);
+    return { viec, hoi, sau };
+  } finally { await ctx.close(); }
+}
+
+for (const [ten, loiPhien] of [['mất mạng', r => r.abort()], ['503', r => r.fulfill({ status: 503, contentType: 'application/json', body: '{"loi":"jwks"}' })]]) {
+  test(`phiên chưa kiểm được lúc mở (${ten}) ⇒ bấm #chu không dữ liệu; mạng về ⇒ vẽ; đối chứng bỏ chặn ở veMan ⇒ dữ liệu hiện`, async () => {
+    assert.deepEqual(await phienLoiLucMo(loiPhien), { viec: 0, hoi: 1, sau: true });
+    if (DOI_CHUNG) {
+      await datBan(m, { va: { 'khung.js': [[NEO_CHUA_KIEM, '']] } });
+      try {
+        const cay = await phienLoiLucMo(loiPhien);
+        assert.ok(cay.viec >= 1, JSON.stringify(cay));
+      } finally { await datBan(m); }
+    }
+  });
+}
 
 for (const [ten, veSai, maMong] of [['401 không vé', () => null, 401], ['403 email khác', () => ve({ email: 'khac@vi-du.vn' }), 403], ['302 lề Access', () => 'chuyen', 'net::ERR_ABORTED']]) {
   test(`B1-T2 ${ten} khi trang đang mở ⇒ bấm #chu ⇒ Hết phiên, không dữ liệu`, async () => {

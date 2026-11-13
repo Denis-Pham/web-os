@@ -89,12 +89,13 @@ export async function datBan(m, { va = {} } = {}) {
   return sha;
 }
 
-// Mỗi ca một context (SW/cache sạch). Chặn + ghi mọi yêu cầu khác gốc cầu nối; pageerror + console.error vào `loi`.
+// Mỗi ca một context (SW/cache sạch). Chặn + ghi mọi yêu cầu khác gốc cầu nối (vào `mang` và `loi`); pageerror + console.error vào `loi`.
 export async function trangMoi(trinh, url, { viewport = { width: 1440, height: 900 }, colorScheme = 'light' } = {}) {
   const ctx = await trinh.newContext({ viewport, colorScheme }), page = await ctx.newPage(), loi = [], mang = [], goc = new URL(url).origin;
   await page.route('**/*', r => {
     if (new URL(r.request().url()).origin === goc) return r.continue();
     mang.push(r.request().url());
+    loi.push('chặn mạng: ' + r.request().url());
     return r.abort();
   });
   page.on('pageerror', e => loi.push('pageerror: ' + e.message));

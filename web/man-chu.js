@@ -4,6 +4,7 @@
 import { el, gioVN } from './dom.js';
 import { goiApi } from './api.js';
 import { dangKyHanhDong } from './giao-dien.js';
+import { daHetPhien } from './phien.js';
 
 const NHAN = { chua_noi: 'chưa nối', thieu: 'chưa nối', hong: 'hỏng', cu: 'cũ' };
 const KHOI = [
@@ -88,6 +89,7 @@ export const MAN = {
     goc.append(el('div', { class: 'dau-man' }, el('h1', {}, 'Một ngày, rõ việc.'), el('p', { class: 'phu' }, homNay())), luoi);
     if (duLieu) veLuoi(luoi, duLieu); else luoi.append(el('p', { class: 'rong' }, 'Đang tải…'));
     const o = await goiApi('/api/man-chu');
+    if (daHetPhien()) return;   // phản hồi về sau het_luc (đã don()) ⇒ không đưa lại vào đệm
     duLieu = o;
     if (luoi.isConnected) veLuoi(luoi, o);
   },
