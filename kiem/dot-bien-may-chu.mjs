@@ -643,6 +643,13 @@ const NHOM = {
     ['brief-ham', VL, "el('span', { 'data-so': k }, String(b[k]))", "el('span', { 'data-so': k }, '0')", T_VL],
     ['hoan-tac-ham', VG, 'LICH_SU.pop()', 'LICH_SU.shift()', T_VL],
     ['hoan-tac-goi', VG, 'hienHoanTac(tin, hoanTac);', 'hienHoanTac(tin, null);', T_VL],
+    // B2 lượt 2c: trả focus sau Huỷ/Esc (hàm: traFocus không focus) · miền ngày R11 (hàm: oNgay bỏ min/max; chỗ gọi: ô han của form việc không qua oNgay) ·
+    // don() của màn cos không còn thật (bí mật còn trong heap sau het_luc) · cos_ghi (chỗ gọi: màn luôn bật nút ghi)
+    ['focus-ham', 'web/giao-dien.js', 'function traFocus() { traVe?.focus(); traVe = null; }', 'function traFocus() { traVe = null; }', T_VL],
+    ['ngay-mien-ham', 'web/giao-dien.js', ', min: MIEN_NGAY.min, max: MIEN_NGAY.max', '', T_VL],
+    ['ngay-mien-goi', VG, "o('Hạn', oNgay('han', v?.han?.slice(0, 10))),", "o('Hạn', el('input', { type: 'date', name: 'han' })),", T_VL],
+    ['viec-don-goi', VL, 'don() { LICH_SU.length = 0;', 'donX() { LICH_SU.length = 0;', T_VL],
+    ['cos-ghi-goi', VL, "datGhi((await goiApi('/api/phien')).cos_ghi === true)", 'datGhi(true)', T_VL],
   ],
 };
 

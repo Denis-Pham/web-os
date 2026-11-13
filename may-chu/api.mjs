@@ -99,7 +99,7 @@ function oCsv(v) {
   if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\r\n]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
 }
-const COT_CSV = ['loai', 'id', 'tieu_de', 'han', 'danh_sach', 'ghi_chu', 'mach', 'bat_dau', 'ket_thuc', 'ca_ngay', 'nhac_truoc_phut', 'dia_diem'];
+export const COT_CSV = ['loai', 'id', 'tieu_de', 'han', 'danh_sach', 'ghi_chu', 'mach', 'bat_dau', 'ket_thuc', 'ca_ngay', 'nhac_truoc_phut', 'dia_diem'];
 
 // Khối màn chủ dựa tệp xuất (A6 docTepXuat): trả nguyên trạng thái + giờ dựng; du_lieu là phần của khối (DỮ LIỆU, không diễn giải).
 const CHUA_NOI = Object.freeze({ trang_thai: 'chua_noi' });

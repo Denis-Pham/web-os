@@ -106,6 +106,13 @@ export const MAN = {
       el('div', { class: 'the the-ban' }, el('h2', {}, 'Bản trước'), el('div', { 'data-truoc': '' }),
         el('button', { type: 'button', 'data-act': 'lui-ban', disabled: true }, 'Lùi về bản trước')),
       el('div', { class: 'ds-cho', 'data-ds-cho': '' }));
+    // GET /api/ban trả 423 khi ghi tắt ⇒ không có thẻ bản chờ nào: hỏi ban_ghi ở /api/phien để vẫn vẽ nút Duyệt tắt («chỉ đọc» do chính lệnh 423 đó báo).
+    try {
+      if ((await goiApi('/api/phien')).ban_ghi === false) {
+        goc.querySelector('[data-ds-cho]').append(el('div', { class: 'the the-ban' }, el('h2', {}, 'Bản chờ'),
+          el('button', { type: 'button', class: 'nut-chinh', 'data-act': 'duyet-ban', disabled: true }, 'Duyệt bản này')));
+      }
+    } catch (e) { if (e instanceof LoiPhien) return; }
     if (duLieu) veDs(duLieu);
     await taiLai();
   },

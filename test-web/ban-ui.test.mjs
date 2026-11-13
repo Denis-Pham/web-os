@@ -156,3 +156,28 @@ test('B1-T3 423 ⇒ «chỉ đọc», Duyệt/Lùi tắt, #tin không «Hết ph
     assert.ok(cay.hetPhien === 1 && cay.chiDoc === 0 && !cay.viec, JSON.stringify(cay));
   }
 });
+
+// B1-T3 vế «Duyệt tắt» (Minor 2): ghi tắt ⇒ GET /api/ban 423 ⇒ không có thẻ bản chờ; ban.js đọc ban_ghi ở /api/phien để vẫn vẽ nút Duyệt tắt.
+async function duyetTat(va) {
+  const mm = await dungMay({ ghiBan: false, va });
+  try {
+    const t = await moBan(mm, null);
+    try {
+      await t.page.locator(BAN, { hasText: 'chỉ đọc' }).waitFor({ timeout: 5000 }).catch(() => {});
+      return {
+        duyetTat: await t.page.locator(`${BAN} [data-act="duyet-ban"][disabled]`).count(),
+        duyetBat: await t.page.locator(`${BAN} [data-act="duyet-ban"]:not([disabled])`).count(),
+        chiDoc: await t.page.locator(BAN, { hasText: 'chỉ đọc' }).count(),
+        hetPhien: await t.page.locator('#tin', { hasText: 'Hết phiên' }).count(),
+      };
+    } finally { await t.ctx.close(); }
+  } finally { await mm.dong(); }
+}
+
+test('B1-T3 vế Duyệt tắt: ban_ghi:false ⇒ màn #ban có nút Duyệt disabled + «chỉ đọc»; đối chứng bỏ đọc ban_ghi ⇒ không có nút', async () => {
+  assert.deepEqual(await duyetTat(), { duyetTat: 1, duyetBat: 0, chiDoc: 1, hetPhien: 0 });
+  if (DOI_CHUNG) {
+    const cay = await duyetTat({ 'ban.js': [['.ban_ghi === false', ".ban_ghi === 'x'"]] });
+    assert.equal(cay.duyetTat, 0, JSON.stringify(cay));
+  }
+});

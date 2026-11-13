@@ -35,7 +35,7 @@ function veViecNha(bo, hub) {
   const nhan = { cu: 'cũ', hong: 'hỏng' }[bo?.trang_thai];
   const noi = !bo || bo.trang_thai === 'chua_noi' || bo.trang_thai === 'thieu' ? chuaNoi() : [nhan && el('p', { class: 'nhan-khoi' }, nhan),
     ds(Array.isArray(bo.du_lieu) ? bo.du_lieu : [], x => el('li', { 'data-viec-bo': x.id }, el('strong', {}, x.ten), x.han && el('time', {}, 'Hạn ' + gioHan(x.han)), x.lap && el('small', {}, x.lap)), 'Chưa có việc nhà nào.')];
-  return el('div', { class: 'the', 'data-nhom': 'viec-nha' }, el('h2', {}, 'Việc nhà (chỉ đọc)'), noi,
+  return el('div', { class: 'the', 'data-nhom': 'viec-nha' }, el('h2', {}, 'Việc nhà (chỉ đọc)'), ...[noi].flat(),
     hub ? lienKetNgoai(hub, 'Mở ở Hub') : chuaNoi('Mở ở Hub: chưa nối'));
 }
 
