@@ -1,6 +1,6 @@
 // Điểm vào giao diện (B1): thanh 12 mạch + #ban, ngăn ☰ (≤ 760 px: .workspace inert khi mở), định tuyến theo #, sổ màn (màn chưa có ⇒
 // giữ chỗ «chưa nối», R6; #ban ở ban.js). Hết phiên ở phien.js (định tuyến không vẽ màn nào khác sau khi hết). Xong khởi động ⇒ <html data-san="1">.
-import { el } from './dom.js';
+import { el, svg } from './dom.js';
 import { datXuLy, LoiPhien, LoiChiDoc, LoiMang } from './api.js';
 import { bao, dangKyHanhDong, ganGiaoDien } from './giao-dien.js';
 import { batDau as batDauPhien, daHetPhien, daKiemPhien, dangKyDon } from './phien.js';
@@ -50,7 +50,7 @@ function batDau() {
   ganGiaoDien();
   datXuLy({ chiDoc: () => bao('Chỉ đọc — máy chủ đang tắt ghi.') });
   for (const m of SO_MAN.values()) dangKyDon(() => m.don());
-  $('cac-mach').replaceChildren(...MACH.map(([id, ten]) => el('a', { href: '#' + id, class: 'lk-mach' }, ten)));
+  $('cac-mach').replaceChildren(...MACH.map(([id, ten]) => el('a', { href: '#' + id, class: 'lk-mach' }, svg(id), el('span', {}, ten))));
   dangKyHanhDong('mo-menu', () => datMenu(true));
   dangKyHanhDong('dong-menu', () => datMenu(false));
   dangKyHanhDong('dang-nhap-lai', () => location.reload());

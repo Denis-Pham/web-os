@@ -19,9 +19,9 @@
 <aside class="thanh-trai" id="danh-sach-mach" aria-label="Các mạch cá nhân">
   <a class="hieu" href="#chu" aria-label="Sổ — Màn chủ">
     <svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect x="4" y="3" width="29" height="34" rx="3" stroke="currentColor" stroke-width="2"/><path d="M11 3v34M17 13h10M17 20h10M17 27h6" stroke="currentColor" stroke-width="2"/></svg>
-    <span>Sổ</span>
+    <span>Sổ<span class="hieu-phu" data-phu>Hệ điều hành cá nhân</span></span>
   </a>
-  <p class="nhan-nav">Không gian của anh</p>
+  <p class="nhan-nav" data-phu>Không gian của anh</p>
   <nav id="cac-mach" aria-label="Điều hướng chính"></nav>
   <div class="cuoi-thanh">
     <a class="lk-ngoai" id="lk-hub" data-chua-noi>Không gian gia đình · chưa nối</a>
@@ -31,11 +31,12 @@
 <div class="workspace">
   <header class="dau-trang">
     <button class="nut-menu" type="button" data-act="mo-menu" aria-label="Mở danh sách mạch" aria-expanded="false" aria-controls="danh-sach-mach"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8"/></svg></button>
-    <span class="ten-trang">Không gian cá nhân <span aria-hidden="true">/</span> <span id="ten-man">Hôm nay</span></span>
-    <span id="trang-thai-he">chưa nối</span>
+    <span class="ten-trang" data-phu><span class="ten-goc">Không gian cá nhân</span> <span class="gach" aria-hidden="true">/</span> <span id="ten-man">Hôm nay</span></span>
+    <span class="ket-noi" data-phu><span class="cham" id="cham-he" data-muc="chua-noi" aria-hidden="true"></span><span id="trang-thai-he">chưa nối</span></span>
+    <span class="vong-a" aria-hidden="true">A</span>
   </header>
   <main id="noi-dung" tabindex="-1"></main>
-  <footer class="chan-trang"><span>Dữ liệu ở máy chủ của anh</span></footer>
+  <footer class="chan-trang" data-phu><span>Dữ liệu ở máy chủ của anh</span><span class="cau-chan">Nhịp riêng. Việc rõ.</span></footer>
 </div>
 <p id="tin" class="tin" role="status"></p>
 <div id="thanh-hoan-tac" class="thanh-hoan-tac" hidden><span id="noi-dung-hoan-tac"></span><button type="button" data-act="hoan-tac">Hoàn tác</button></div>

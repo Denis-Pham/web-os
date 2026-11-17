@@ -332,7 +332,7 @@ async (CU = [], CHE_DO = null) => {
   });
   // CŨ (CU R7; demo :206–216, SIA/Toà án): màn chỉ xem không có nút ghi — dò tên data-act. Lọt nút ghi không mang data-act.
   else await thu('màn chỉ xem', async () => {
-    const choPhep = new Set(['hoi-ai', 'mo-menu', 'dong-menu', 'hoan-tac', 'gap']);
+    const choPhep = new Set(['hoi-ai', 'mo-menu', 'dong-menu', 'hoan-tac', 'gap', 'xem-het']);   // xem-het (so-that 17/11): mở hộp chỉ đọc «Xem cả N»
     for (const m of MAN.filter(x => x !== 'cos')) {
       await toi(m); const g = document.querySelector(`#noi-dung > section[data-man="${m}"]`);
       const ghi = $$('[data-act]', g).map(b => b.dataset.act).filter(a => !choPhep.has(a));
